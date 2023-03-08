@@ -133,7 +133,7 @@ def process_segment(dataset, annotations, processed_bucket, datatype):
   # Save the annotations
   with open(f"{segment_name}.json", "w") as f:
     json.dump(annotations, f)
-  upload_blob(processed_bucket, "f{segment_name}.json",
+  upload_blob(processed_bucket, f"{segment_name}.json",
     f"{datatype}/annotations/{date}/{segment_name}.json")
   os.remove(f"{segment_name}.json")
 

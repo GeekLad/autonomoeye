@@ -1,5 +1,7 @@
+# Installed using Python 3.8.10
+pandas
 notebook
+protobuf==3.20.*
+waymo-open-dataset-tf-2-6-0
 google-cloud-storage
 gcsfs
-waymo-open-dataset-tf-2-6-0
-tensorflow
