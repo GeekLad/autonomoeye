@@ -26,13 +26,18 @@ def get_uris(gs_uri):
     return files.decode("utf-8").split("\n")
 
 
-def get_annotation_uris():
+def get_annotation_uris(datatype="train"):
     '''Obtains all of the annotation URIs from the capstone project bucket'''
-    return get_uris("gs://waymo-processed-images/train/annotations/**/*.json")
+    try:
+        return get_uris(f"gs://waymo-processed-images/{datatype}/annotations/**/*.json")
+    except:
+        return []
 
 
-def get_all_waymo_training_segment_uris():
-    return get_uris("gs://waymo_open_dataset_v_1_4_1/individual_files/training/*.tfrecord")
+def get_all_waymo_segment_uris(datatype="train"):
+    if datatype == "train":
+        datatype = "training"
+    return get_uris(f"gs://waymo_open_dataset_v_1_4_1/individual_files/{datatype}/*.tfrecord")
 
 
 def get_segment_name(gs_uri):
@@ -83,12 +88,18 @@ def get_metadata(processed_bucket, datatype, frame):
     time_of_day = segment_metadata.time_of_day
     location = segment_metadata.location
     weather = segment_metadata.weather
-    gcp_url = "gs://{processed_bucket}/{datatype}/annotations/{date}/{segment_name}.json"
+    gcp_url = f"gs://{processed_bucket}/{datatype}/annotations/{date}/{segment_name}.json"
 
     return [segment_name, date, time_of_day, location, weather, gcp_url]
 
 
-def process_segment(dataset, annotations, processed_bucket, datatype):
+def process_segment(dataset, annotations, processed_bucket, datatype, temp_directory):
+    temp_directory = re.sub(r"\/$", "", temp_directory)
+    if not os.path.exists(temp_directory):
+        # if the demo_folder directory is not present
+        # then create it.
+        os.makedirs(temp_directory)
+
     for idx, data in enumerate(dataset):
         frame = open_dataset.Frame()
         frame.ParseFromString(bytearray(data.numpy()))
@@ -98,7 +109,7 @@ def process_segment(dataset, annotations, processed_bucket, datatype):
         dt_object = datetime.fromtimestamp(timestamp)
         date = dt_object.strftime("%Y-%m-%d")
         # Get segment metadata
-        if idx == 1:
+        if idx == 0:
             seg_metadata = get_metadata(processed_bucket, datatype, frame)
 
         # Write images to file locations partitioned by day
@@ -107,13 +118,16 @@ def process_segment(dataset, annotations, processed_bucket, datatype):
                 camera_id+1)  # Convert to camera name
             img_array = np.array(tf.image.decode_jpeg(image.image))
             img = Image.fromarray(img_array)
-            file_name = f"{segment_name}_{idx}_{camera}.jpg"
-            gcp_url = f"gs://{processed_bucket}/{datatype}/images/{date}/{segment_name}/{file_name}"
-            with FileIO(gcp_url, 'wb') as f:
-                img.save(f, "PNG")
+            image_id = f"{segment_name}_{idx}_{camera}"
+            file_name = f"{image_id}.jpeg"
+            temp_file = f"{temp_directory}/{file_name}"
+            gcp_path = f"{datatype}/images/{date}/{segment_name}/{file_name}"
+            img.save(temp_file)
+            upload_blob(processed_bucket, temp_file, gcp_path)
+            os.remove(temp_file)
             annotations["images"].append({
                 "id": f"{segment_name}_{idx}_{camera}",
-                "gcp_url": gcp_url,
+                "gcp_url": f"gs://{processed_bucket}/{gcp_path}",
                 "file_name": file_name
             })
 
@@ -129,17 +143,17 @@ def process_segment(dataset, annotations, processed_bucket, datatype):
                         annotations["annotations"].append({
                             "id": label.id,
                             "category_id": label.type,
-                            "image_id": "{}_{}_{}".format(segment_name, idx, camera),
+                            "image_id": file_name,
                             "area": label.box.length*label.box.width,
                             "bbox": bbox
                         })
 
     # Save the annotations
-    with open(f"{segment_name}.json", "w") as f:
+    with open(f"{temp_directory}/{segment_name}.json", "w") as f:
         json.dump(annotations, f)
-    upload_blob(processed_bucket, f"{segment_name}.json",
+    upload_blob(processed_bucket, f"{temp_directory}/{segment_name}.json",
                 f"{datatype}/annotations/{date}/{segment_name}.json")
-    os.remove(f"{segment_name}.json")
+    os.remove(f"{temp_directory}/{segment_name}.json")
 
     # Add the processed info to the metadata csv
     metadata_path = f"gs://{processed_bucket}/{datatype}/metadata/metadata.csv"
@@ -148,6 +162,7 @@ def process_segment(dataset, annotations, processed_bucket, datatype):
         metadata.loc[len(metadata)] = seg_metadata
         metadata.drop_duplicates().to_csv(metadata_path, index=False)
     except:
-        metadata = pd.DataFrame(seg_metadata)
+        metadata = pd.DataFrame([seg_metadata], columns=[
+                                segment_name, "date", "time_of_day", "location", "weather", "gcp_url"])
         metadata.to_csv(metadata_path, index=False)
     return seg_metadata
