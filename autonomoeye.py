@@ -62,6 +62,19 @@ def get_missing_segments(datatype):
                     for uri in get_all_waymo_segment_uris(datatype)]
     return [uri for uri in all_segments if uri not in segments_with_images]
 
+def get_partial_segments(datatype):
+  image_segments = get_segments_with_images(datatype)
+  annotation_segments = [get_segment_name(uri) for uri in get_annotation_uris(datatype)]
+  return [segment for segment in image_segments if segment not in annotation_segments]
+
+def get_last_index(bucket, datatype, segment):
+  try:
+    image_uris = get_uris(f"gs://{bucket}/{datatype}/images/*/{segment}/*.jpeg")
+    indicies = [re.findall(r"\d+(?:_\d+){4}_(\d+)_", uri) for uri in image_uris]
+    indicies = [int(index[0]) for index in indicies if len(index) > 0]
+    return max(indicies)
+  except:
+    return 0
 
 def get_segment_name(gs_uri):
     '''Parses the Waymo dataset segment name URI/path/filename'''
@@ -136,6 +149,7 @@ def process_segment(dataset, annotations, processed_bucket, datatype, temp_direc
         # then create it.
         os.makedirs(temp_directory)
 
+    last_index = None
     for idx, data in enumerate(dataset):
         frame = open_dataset.Frame()
         frame.ParseFromString(bytearray(data.numpy()))
@@ -144,6 +158,9 @@ def process_segment(dataset, annotations, processed_bucket, datatype, temp_direc
         timestamp = frame.timestamp_micros/1000000
         dt_object = datetime.fromtimestamp(timestamp)
         date = dt_object.strftime("%Y-%m-%d")
+        if last_index == None:
+            last_index = get_last_index(processed_bucket, datatype, segment_name)
+
         # Get segment metadata
         if idx == 0:
             seg_metadata = get_metadata(processed_bucket, datatype, frame)
@@ -152,20 +169,23 @@ def process_segment(dataset, annotations, processed_bucket, datatype, temp_direc
         for camera_id, image in enumerate(frame.images):
             camera = open_dataset.CameraName.Name.Name(
                 camera_id+1)  # Convert to camera name
-            img_array = np.array(tf.image.decode_jpeg(image.image))
-            img = Image.fromarray(img_array)
             image_id = f"{segment_name}_{idx}_{camera}"
             file_name = f"{image_id}.jpeg"
             temp_file = f"{temp_directory}/{file_name}"
             gcp_path = f"{datatype}/images/{date}/{segment_name}/{file_name}"
-            img.save(temp_file)
-            upload_blob(processed_bucket, temp_file, gcp_path)
-            os.remove(temp_file)
             annotations["images"].append({
                 "id": f"{segment_name}_{idx}_{camera}",
                 "gcp_url": f"gs://{processed_bucket}/{gcp_path}",
                 "file_name": file_name
             })
+            if idx >= last_index:
+                img_array = np.array(tf.image.decode_jpeg(image.image))
+                img = Image.fromarray(img_array)
+                img.save(temp_file)
+                upload_blob(processed_bucket, temp_file, gcp_path)
+                os.remove(temp_file)
+            else:
+              print(f"Image at index {idx} already downloaded, skipping image download")
 
             for camera_labels in frame.camera_labels:
                 # Ignore camera labels that do not correspond to this camera.
