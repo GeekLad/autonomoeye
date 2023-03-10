@@ -40,10 +40,33 @@ def get_all_waymo_segment_uris(datatype="train"):
     return get_uris(f"gs://waymo_open_dataset_v_1_4_1/individual_files/{datatype}/*.tfrecord")
 
 
+def get_segments_with_images(datatype):
+    image_uris = get_uris(
+        f"gs://waymo-processed-images/{datatype}/images/**/*.jpeg")
+    segments_with_images = {get_segment_name(uri) for uri in image_uris}
+    segments_with_images.remove("")
+    return list(segments_with_images)
+
+
+def get_segments_missing_annotations(datatype):
+    annotation_uris = get_annotation_uris(datatype)
+    uris = get_all_waymo_segment_uris(datatype)
+    processed_segments = [get_segment_name(uri) for uri in annotation_uris]
+    all_segments = [get_segment_name(uri) for uri in uris]
+    return [uri for uri in all_segments if uri not in processed_segments]
+
+
+def get_missing_segments(datatype):
+    segments_with_images = get_segments_with_images(datatype)
+    all_segments = [get_segment_name(uri)
+                    for uri in get_all_waymo_segment_uris(datatype)]
+    return [uri for uri in all_segments if uri not in segments_with_images]
+
+
 def get_segment_name(gs_uri):
     '''Parses the Waymo dataset segment name URI/path/filename'''
     matches = re.findall(r"(\d+(?:_\d+){4})", gs_uri)
-    if len(matches) == 1:
+    if len(matches) > 0:
         return matches[0]
     return ""
 
@@ -91,6 +114,19 @@ def get_metadata(processed_bucket, datatype, frame):
     gcp_url = f"gs://{processed_bucket}/{datatype}/annotations/{date}/{segment_name}.json"
 
     return [segment_name, date, time_of_day, location, weather, gcp_url]
+
+
+def fetch_segment(bucket, datatype, segment, temp_directory="tmp"):
+    # Import the Segment
+    remote_datatype = datatype if datatype != "train" else "training"
+    uri = f"gs://waymo_open_dataset_v_1_4_1/individual_files/{remote_datatype}/segment-{segment}_with_camera_labels.tfrecord"
+    dataset = tf.data.TFRecordDataset(uri, compression_type='')
+
+    # initialize annnotations dictionary
+    annotations = initialize_annotations_dict()
+
+    # process images and annotations in frame and return metadata
+    return process_segment(dataset, annotations, bucket, datatype, temp_directory)
 
 
 def process_segment(dataset, annotations, processed_bucket, datatype, temp_directory):
