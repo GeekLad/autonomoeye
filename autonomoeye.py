@@ -9,6 +9,9 @@ from datetime import datetime
 import re
 import numpy as np
 import json
+import struct
+import imghdr
+from tqdm import tqdm
 import pandas as pd
 from waymo_open_dataset import dataset_pb2 as open_dataset
 from PIL import Image
@@ -62,19 +65,25 @@ def get_missing_segments(datatype):
                     for uri in get_all_waymo_segment_uris(datatype)]
     return [uri for uri in all_segments if uri not in segments_with_images]
 
+
 def get_partial_segments(datatype):
-  image_segments = get_segments_with_images(datatype)
-  annotation_segments = [get_segment_name(uri) for uri in get_annotation_uris(datatype)]
-  return [segment for segment in image_segments if segment not in annotation_segments]
+    image_segments = get_segments_with_images(datatype)
+    annotation_segments = [get_segment_name(
+        uri) for uri in get_annotation_uris(datatype)]
+    return [segment for segment in image_segments if segment not in annotation_segments]
+
 
 def get_last_index(bucket, datatype, segment):
-  try:
-    image_uris = get_uris(f"gs://{bucket}/{datatype}/images/*/{segment}/*.jpeg")
-    indicies = [re.findall(r"\d+(?:_\d+){4}_(\d+)_", uri) for uri in image_uris]
-    indicies = [int(index[0]) for index in indicies if len(index) > 0]
-    return max(indicies)
-  except:
-    return 0
+    try:
+        image_uris = get_uris(
+            f"gs://{bucket}/{datatype}/images/*/{segment}/*.jpeg")
+        indicies = [re.findall(
+            r"\d+(?:_\d+){4}_(\d+)_", uri) for uri in image_uris]
+        indicies = [int(index[0]) for index in indicies if len(index) > 0]
+        return max(indicies)
+    except:
+        return 0
+
 
 def get_segment_name(gs_uri):
     '''Parses the Waymo dataset segment name URI/path/filename'''
@@ -159,7 +168,8 @@ def process_segment(dataset, annotations, processed_bucket, datatype, temp_direc
         dt_object = datetime.fromtimestamp(timestamp)
         date = dt_object.strftime("%Y-%m-%d")
         if last_index == None:
-            last_index = get_last_index(processed_bucket, datatype, segment_name)
+            last_index = get_last_index(
+                processed_bucket, datatype, segment_name)
 
         # Get segment metadata
         if idx == 0:
@@ -185,7 +195,8 @@ def process_segment(dataset, annotations, processed_bucket, datatype, temp_direc
                 upload_blob(processed_bucket, temp_file, gcp_path)
                 os.remove(temp_file)
             else:
-              print(f"Image at index {idx} already downloaded, skipping image download")
+                print(
+                    f"Image at index {idx} already downloaded, skipping image download")
 
             for camera_labels in frame.camera_labels:
                 # Ignore camera labels that do not correspond to this camera.
@@ -222,3 +233,110 @@ def process_segment(dataset, annotations, processed_bucket, datatype, temp_direc
                                 segment_name, "date", "time_of_day", "location", "weather", "gcp_url"])
         metadata.to_csv(metadata_path, index=False)
     return seg_metadata
+
+# Obtained this snippet from https://stackoverflow.com/a/20380514
+
+
+def get_image_size(fname):
+    '''Determine the image type of fhandle and return its size.
+    from draco'''
+    with open(fname, 'rb') as fhandle:
+        head = fhandle.read(24)
+        if len(head) != 24:
+            return
+        if imghdr.what(fname) == 'png':
+            check = struct.unpack('>i', head[4:8])[0]
+            if check != 0x0d0a1a0a:
+                return
+            width, height = struct.unpack('>ii', head[16:24])
+        elif imghdr.what(fname) == 'gif':
+            width, height = struct.unpack('<HH', head[6:10])
+        elif imghdr.what(fname) == 'jpeg':
+            try:
+                fhandle.seek(0)  # Read 0xff next
+                size = 2
+                ftype = 0
+                while not 0xc0 <= ftype <= 0xcf:
+                    fhandle.seek(size, 1)
+                    byte = fhandle.read(1)
+                    while ord(byte) == 0xff:
+                        byte = fhandle.read(1)
+                    ftype = ord(byte)
+                    size = struct.unpack('>H', fhandle.read(2))[0] - 2
+                # We are at a SOFn block
+                fhandle.seek(1, 1)  # Skip `precision' byte.
+                height, width = struct.unpack('>HH', fhandle.read(4))
+            except Exception:  # IGNORE:W0703
+                return
+        else:
+            return
+        return width, height
+
+
+def coco_to_yolo_annotations(annotations_json, labels_directory, images_directory, round_digits=9):
+    # Category ID translations
+    id_translations = {1: 0, 2: 1, 4: 2}
+    # Create the directory if it doesn't exist
+    if not os.path.exists(labels_directory):
+        # if the demo_folder directory is not present
+        # then create it.
+        os.makedirs(labels_directory)
+
+    # Load the COCO annotation file
+    with open(annotations_json, 'r') as f:
+        coco_data = json.load(f)
+
+    # Re-map the image array into a dictionary with keys
+    image_dict = {el["id"]: {"file_name": el["file_name"]}
+                  for el in coco_data["images"]}
+
+    # Iterate through each annotation and convert it to YOLOv7 format
+    for annotation in tqdm(coco_data['annotations']):
+        image_id = re.sub("\.jpeg$", "", annotation['image_id'])
+        bbox = annotation['bbox']
+
+        # Get the image filename without the extension
+        image_filename = image_dict[image_id]['file_name'].split('.')[0]
+
+        # Get the image dimensions
+        img_x, img_y = get_image_size(
+            f"{images_directory}/{image_filename}.jpeg")
+
+        # Calculate the normalized (0-1) center coordinates and width/height of the bounding box
+        x_center = round((bbox[0] + bbox[2] / 2)/img_x, round_digits)
+        y_center = round((bbox[1] + bbox[3] / 2)/img_y, round_digits)
+        width = round(bbox[2]/img_x, round_digits)
+        height = round(bbox[3]/img_y, round_digits)
+
+        # Get the translated category ID
+        category_id = id_translations[annotation["category_id"]]
+
+        # Write the annotation to a YOLOv7-style text file
+        with open(f"{labels_directory}/{image_filename}.txt", 'a') as out_file:
+            out_file.write(
+                f"{category_id} {x_center} {y_center} {width} {height}\n")
+
+
+def chunks(lst, n):
+    out = []
+    for i in range(0, len(lst), n):
+        out.append(lst[i:i + n])
+    return out
+
+
+def download_images(annotations_json, images_directory):
+    # Create the directory if it doesn't exist
+    if not os.path.exists(images_directory):
+        # if the demo_folder directory is not present
+        # then create it.
+        os.makedirs(images_directory)
+
+    # Load the COCO annotation file
+    with open(annotations_json, 'r') as f:
+        coco_data = json.load(f)
+
+    DEVNULL = open(os.devnull, 'w')
+    for images in tqdm(chunks(coco_data["images"], 100)):
+        uri_string = " ".join(['"'+img["gcp_url"]+'"' for img in images])
+        command = f"gsutil -m cp {uri_string} {images_directory}"
+        subprocess.call(command, shell=True, stdout=DEVNULL, stderr=DEVNULL)
