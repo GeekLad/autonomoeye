@@ -11,7 +11,7 @@ credentials, _ = google.auth.default()
 # Import missing segments
 while True:
     # Fetch missing segments
-    missing_segments = autonomoeye.get_missing_segments("validation")
+    missing_segments = autonomoeye.get_missing_segments("train")
 
     # If there aren't any, we're done
     if len(missing_segments) == 0:
@@ -20,6 +20,6 @@ while True:
     # Fetch the first missing segment
     print(f"Fetching {missing_segments[0]}")
     autonomoeye.fetch_segment("waymo-processed-images",
-                              "validation", missing_segments[0])
+                              "train", missing_segments[0])
 
 print("Done!  No more missing segments.")
