@@ -324,7 +324,7 @@ def chunks(lst, n):
     return out
 
 
-def download_images(annotations_json, images_directory):
+def download_images(annotations_json, images_directory, chunk_size=25):
     # Create the directory if it doesn't exist
     if not os.path.exists(images_directory):
         # if the demo_folder directory is not present
@@ -336,7 +336,7 @@ def download_images(annotations_json, images_directory):
         coco_data = json.load(f)
 
     DEVNULL = open(os.devnull, 'w')
-    for images in tqdm(chunks(coco_data["images"], 100)):
+    for images in tqdm(chunks(coco_data["images"], chunk_size)):
         uri_string = " ".join(['"'+img["gcp_url"]+'"' for img in images])
         command = f"gsutil -m cp {uri_string} {images_directory}"
         subprocess.call(command, shell=True, stdout=DEVNULL, stderr=DEVNULL)
