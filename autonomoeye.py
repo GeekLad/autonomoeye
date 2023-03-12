@@ -285,10 +285,10 @@ def coco_to_yolo_annotations(annotations_json, labels_directory, images_director
 
         # Yolo format uses a the center of the bounding box as the anchor, and normalized values
         # Calculate the normalized (0-1) center coordinates and width/height of the bounding box
-        x_center = round((bbox[0] + bbox[2] / 2)/img_x, round_digits)
-        y_center = round((bbox[1] + bbox[3] / 2)/img_y, round_digits)
-        width = round(bbox[2]/img_x, round_digits)
-        height = round(bbox[3]/img_y, round_digits)
+        x_center = round((bbox[0] + bbox[3] / 2)/img_x, round_digits)
+        y_center = round((bbox[1] + bbox[2] / 2)/img_y, round_digits)
+        width = round(bbox[3]/img_x, round_digits)
+        height = round(bbox[2]/img_y, round_digits)
 
         # Get the translated category ID
         category_id = id_translations[annotation["category_id"]]
