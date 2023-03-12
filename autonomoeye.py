@@ -237,43 +237,15 @@ def process_segment(dataset, annotations, processed_bucket, datatype, temp_direc
 # Obtained this snippet from https://stackoverflow.com/a/20380514
 
 
-def get_image_size(fname):
-    '''Determine the image type of fhandle and return its size.
-    from draco'''
-    with open(fname, 'rb') as fhandle:
-        head = fhandle.read(24)
-        if len(head) != 24:
-            return
-        if imghdr.what(fname) == 'png':
-            check = struct.unpack('>i', head[4:8])[0]
-            if check != 0x0d0a1a0a:
-                return
-            width, height = struct.unpack('>ii', head[16:24])
-        elif imghdr.what(fname) == 'gif':
-            width, height = struct.unpack('<HH', head[6:10])
-        elif imghdr.what(fname) == 'jpeg':
-            try:
-                fhandle.seek(0)  # Read 0xff next
-                size = 2
-                ftype = 0
-                while not 0xc0 <= ftype <= 0xcf:
-                    fhandle.seek(size, 1)
-                    byte = fhandle.read(1)
-                    while ord(byte) == 0xff:
-                        byte = fhandle.read(1)
-                    ftype = ord(byte)
-                    size = struct.unpack('>H', fhandle.read(2))[0] - 2
-                # We are at a SOFn block
-                fhandle.seek(1, 1)  # Skip `precision' byte.
-                height, width = struct.unpack('>HH', fhandle.read(4))
-            except Exception:  # IGNORE:W0703
-                return
-        else:
-            return
-        return width, height
+def get_image_dimensions_and_resize(fname, target_size):
+    img = Image.open(fname)
+    width, height = img.size
+    new_img = img.resize((target_size, target_size))
+    new_img.save(fname, "JPEG", optimize=True)
+    return width, height
 
 
-def coco_to_yolo_annotations(annotations_json, labels_directory, images_directory, round_digits=9):
+def coco_to_yolo_annotations(annotations_json, labels_directory, images_directory, target_size=640, round_digits=12):
     # Category ID translations
     id_translations = {1: 0, 2: 1, 4: 2}
     # Create the directory if it doesn't exist
@@ -291,6 +263,7 @@ def coco_to_yolo_annotations(annotations_json, labels_directory, images_director
                   for el in coco_data["images"]}
 
     # Iterate through each annotation and convert it to YOLOv7 format
+    img_dimensions = {}
     for annotation in tqdm(coco_data['annotations']):
         image_id = re.sub("\.jpeg$", "", annotation['image_id'])
         bbox = annotation['bbox']
@@ -298,9 +271,17 @@ def coco_to_yolo_annotations(annotations_json, labels_directory, images_director
         # Get the image filename without the extension
         image_filename = image_dict[image_id]['file_name'].split('.')[0]
 
-        # Get the image dimensions
-        img_x, img_y = get_image_size(
-            f"{images_directory}/{image_filename}.jpeg")
+        # If the file has been deleted, skip it
+        if not os.path.exists(f"{images_directory}/{image_filename}.jpeg"):
+            continue
+
+        # Get the image dimensions and resize to the target size
+        if not image_id in img_dimensions:
+            img_x, img_y = get_image_dimensions_and_resize(
+                f"{images_directory}/{image_filename}.jpeg", target_size)
+            img_dimensions[image_id] = (img_x, img_y)
+        else:
+            img_x, img_y = img_dimensions[image_id]
 
         # Yolo format uses a the center of the bounding box as the anchor, and normalized values
         # Calculate the normalized (0-1) center coordinates and width/height of the bounding box
