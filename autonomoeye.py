@@ -302,6 +302,7 @@ def coco_to_yolo_annotations(annotations_json, labels_directory, images_director
         img_x, img_y = get_image_size(
             f"{images_directory}/{image_filename}.jpeg")
 
+        # Yolo format uses a the center of the bounding box as the anchor, and normalized values
         # Calculate the normalized (0-1) center coordinates and width/height of the bounding box
         x_center = round((bbox[0] + bbox[2] / 2)/img_x, round_digits)
         y_center = round((bbox[1] + bbox[3] / 2)/img_y, round_digits)
