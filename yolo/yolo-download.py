@@ -2,13 +2,13 @@
 #     python3 yolo-download.py -t train_annotations_2017-10-02_10793018113277660068_2714_540_2734_540.json -v validation_annotations_2017-10-01_10689101165701914459_2072_300_2092_300.json
 
 # Imports
-import autonomoeye
-import google.auth
-import tensorflow as tf
 import argparse
-import autonomoeye
-import os
+import google.auth
 import subprocess
+import os
+from importlib.machinery import SourceFileLoader
+autonomoeye = SourceFileLoader(
+    "autonomoeye", "../autonomoeye.py").load_module()
 
 # Setup credentials
 credentials, _ = google.auth.default()
