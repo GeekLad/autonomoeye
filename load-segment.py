@@ -13,10 +13,10 @@ credentials, _ = google.auth.default()
 
 # Parse the args
 parser = argparse.ArgumentParser()
-parser.add_argument('-b', dest='bucket')
-parser.add_argument('-s', dest='segment')
-parser.add_argument('-d', dest='datatype')
-args=parser.parse_args()
+parser.add_argument('-b', dest='bucket', required=True)
+parser.add_argument('-s', dest='segment', required=True)
+parser.add_argument('-d', dest='datatype', required=True)
+args = parser.parse_args()
 
 # Fetch & process
 autonomoeye.fetch_segment(args.bucket, args.datatype, args.segment)

@@ -127,3 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Temp Files
+tmp/
+
+# Yolo-related files
+yolo/runs/
+yolo/data/train/
+yolo/data/validation/
