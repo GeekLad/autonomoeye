@@ -6,9 +6,12 @@ import argparse
 import google.auth
 import subprocess
 import os
-from importlib.machinery import SourceFileLoader
-autonomoeye = SourceFileLoader(
-    "autonomoeye", "../autonomoeye.py").load_module()
+import sys
+sys.path.append(os.getcwd())
+sys.path.append(os.getcwd() + "/..")
+import utils.image_utils
+import dataprocessing.process_coco
+
 
 # Setup credentials
 credentials, _ = google.auth.default()
@@ -28,8 +31,8 @@ DEVNULL = open(os.devnull, 'w')
 command = f'gsutil -m cp "{json}" .'
 subprocess.call(command, shell=True)
 print("Downloading images")
-autonomoeye.download_images(f"{args.segment_name}.json", images)
+utils.image_utils.download_images(f"{args.segment_name}.json", images)
 print("Building image labels")
-autonomoeye.coco_to_yolo_annotations(
+dataprocessing.process_coco.coco_to_yolo_annotations(
     f"{args.segment_name}.json", annotations, images)
 os.remove(f"{args.segment_name}.json")
