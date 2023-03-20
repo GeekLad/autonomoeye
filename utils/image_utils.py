@@ -13,6 +13,8 @@ import matplotlib.patches as patches
 
 def annotations_to_df(annotations, mount_dir, image_map):
     df = pd.DataFrame(annotations['annotations'])
+    #df['gcp_path'] = df['image_id'].apply(lambda x: mount_dir + image_map[x])
+    df['image_id'] = df['image_id'].str.replace('.jpeg','')
     df['gcp_path'] = df['image_id'].apply(lambda x: mount_dir + image_map[x])
     df['x_min'] = df['bbox'].apply(lambda x: x[0])
     df['y_min'] = df['bbox'].apply(lambda x: x[1])
@@ -23,10 +25,6 @@ def annotations_to_df(annotations, mount_dir, image_map):
     df.drop(columns='bbox',inplace=True)
 
     return df
-
-
-def df_to_annotations():
-    print('Not implemented yet')
 
 
 def plot_annotations(img, bbox, labels, scores, confidence_threshold, 

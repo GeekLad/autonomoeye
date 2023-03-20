@@ -74,6 +74,7 @@ with row3_1:
         img_fl = Image.open('data/{}/{}/{}/{}/{}_{}_FRONT_LEFT.jpeg'.format(location_map[location],tod_map[tod], weather_map[weather], segment, segment,frame))
         #print('data/{}/{}/{}/{}/{}_{}_FRONT_LEFT.jpeg'.format(location_map[location],tod_map[tod], weather_map[weather], segment, segment,frame))
         st.markdown("## Front Left Camera")
+        
         st.image(img_fl)
     except:
         st.markdown("")
