@@ -5,7 +5,8 @@ import tensorflow as tf
 from google.cloud import storage
 from tqdm import tqdm
 import json
-
+import shutil
+import argparse
 
 def upload_blob(bucket_name, source_file_name, destination_blob_name):
     storage_client = storage.Client()
@@ -108,21 +109,68 @@ def chunks(lst, n):
         out.append(lst[i:i + n])
     return out
 
+def create_missing_dir(dir):
+    # Create the directory if it doesn't exist
+    if not os.path.exists(dir):
+        os.makedirs(dir)
 
-def download_images(annotations_json_file, images_directory, chunk_size=25):
+def download_images(annotations_json_file, images_directory, chunk_size=25, nth_frame=10):
     '''Downloads the images from a JSON annotations file'''
     # Create the directory if it doesn't exist
-    if not os.path.exists(images_directory):
-        # if the demo_folder directory is not present
-        # then create it.
-        os.makedirs(images_directory)
+    create_missing_dir(images_directory)
 
     # Load the COCO annotation file
     with open(annotations_json_file, 'r') as f:
         coco_data = json.load(f)
 
+    nth_images = []
+    for i, image in enumerate(coco_data["images"]):
+        idx = int(re.findall(r"\d+(?:_\d+){4}_(\d+)_", image['id'])[0])
+        if idx % nth_frame == 0:
+            nth_images.append(image)
+
     DEVNULL = open(os.devnull, 'w')
-    for images in tqdm(chunks(coco_data["images"], chunk_size)):
+    for images in tqdm(chunks(nth_images, chunk_size)):
         uri_string = " ".join(['"' + img["gcp_url"] + '"' for img in images])
         command = f"gsutil -m cp {uri_string} {images_directory}"
         subprocess.call(command, shell=True, stdout=DEVNULL, stderr=DEVNULL)
+
+def download_annotations_and_images(annotations_directory, images_directory, datatype="train", chunk_size=25, nth_frame=10):
+    # Strip any trailing slashes
+    annotations_directory = re.sub(r"\/$", "", annotations_directory)
+
+    # Create the directory if it doesn't exist
+    create_missing_dir(annotations_directory)
+    annotation_uris = get_annotation_uris(datatype)
+    DEVNULL = open(os.devnull, 'w')
+
+    print("Downloading annotations")
+    for annotations in tqdm(chunks(annotation_uris, chunk_size)):
+        uri_string = " ".join(['"' + annotation + '"' for annotation in annotations])
+        command = f"gsutil -m cp {uri_string} {annotations_directory}"
+        subprocess.call(command, shell=True, stdout=DEVNULL, stderr=DEVNULL)
+
+    print("Downloading images")
+    # from os import listdir
+    # from os.path import isfile, join
+    annotation_files = [f for f in os.listdir(annotations_directory) if os.path.isfile(os.path.join(annotations_directory, f))]
+    for annotation_file in tqdm(annotation_files):
+        download_images(f"{annotations_directory}/{annotation_file}", images_directory, chunk_size, nth_frame)
+
+if __name__ == '__main__':
+    # Read in script arguments
+    parser = argparse.ArgumentParser(
+        description='Download images and annotations from the project bucket')
+    parser.add_argument('-t', '--datatype', help='Datatype to load',
+                        dest='datatype', default='train', choices=['train', 'validation'])
+    parser.add_argument('-a', '--annotations_directory', help='Annotations directory',
+                        dest='annotations_directory', default='data/train/annotations')
+    parser.add_argument('-i', '--images_directory', help='Images directory',
+                        dest='images_directory', default='data/train/images')
+    parser.add_argument('-c', '--chunk_size', help='How many files to download at one time',
+                        dest='chunk_size', default=25)
+    parser.add_argument('-n', '--nth_frame', help='How many frames to skip (i.e. every 10th frame)',
+                        dest='nth_frame', default=10)
+    args = parser.parse_args()
+
+    download_annotations_and_images(args.annotations_directory, args.images_directory, args.datatype, int(args.chunk_size), int(args.nth_frame))
