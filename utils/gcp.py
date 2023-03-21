@@ -125,12 +125,17 @@ def download_images(annotations_json_file, images_directory, chunk_size=25):
     # Create the directory if it doesn't exist
     create_missing_dir(images_directory)
 
+    # Get the existing images
+    existing_images = list_files(images_directory)
+
     # Load the COCO annotation file
     with open(annotations_json_file, 'r') as f:
         coco_data = json.load(f)
 
+    image_data = [img for img in coco_data["images"] if img["id"]+".jpeg" not in existing_images]
+
     DEVNULL = open(os.devnull, 'w')
-    for images in tqdm(chunks(coco_data["images"], chunk_size), unit_scale=chunk_size):
+    for images in tqdm(chunks(image_data, chunk_size), unit_scale=chunk_size):
         uri_string = " ".join(['"' + img["gcp_url"] + '"' for img in images])
         command = f"gsutil -m cp {uri_string} {images_directory}"
         subprocess.call(command, shell=True, stdout=DEVNULL, stderr=DEVNULL)
@@ -166,7 +171,7 @@ def combine_annotations(annotations_directory, nth_frame=25):
             
             for image in coco_data["images"]:
                 idx = get_image_index(image['id'])
-                if idx % nth_frame == 0:
+                if idx % nth_frame == 0 and image["id"] not in image_ids:
                     combined_annotations["images"].append(image)
                     image_ids.add(image["id"])
 
@@ -182,6 +187,10 @@ def combine_annotations(annotations_directory, nth_frame=25):
     with open(f"{annotations_directory}/combined_annotations.json", "w") as f:
         json.dump(combined_annotations, f)
 
+def list_files(path):
+    if not os.path.exists(path):
+        return []
+    return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 
 def download_annotations_and_images(annotations_directory, images_directory, datatype="train", chunk_size=25, nth_frame=10):
     # Strip any trailing slashes
@@ -192,14 +201,22 @@ def download_annotations_and_images(annotations_directory, images_directory, dat
     annotation_uris = get_annotation_uris(datatype)
     DEVNULL = open(os.devnull, 'w')
 
-    print("Downloading annotations")
-    for annotations in tqdm(chunks(annotation_uris, chunk_size), unit_scale=chunk_size):
-        uri_string = " ".join(['"' + annotation + '"' for annotation in annotations])
-        command = f"gsutil -m cp {uri_string} {annotations_directory}"
-        subprocess.call(command, shell=True, stdout=DEVNULL, stderr=DEVNULL)
+    # Get existing annotations
+    existing_annotations = list_files(annotations_directory)
+    existing_annotations = [get_segment_name(annotation) for annotation in existing_annotations]
 
-    print("Combining annotations")
-    combine_annotations(annotations_directory, nth_frame)
+    if len(existing_annotations) > 0 and f"combined_annotations.json" in existing_annotations:
+        print("Annotations already downloaded and combined")
+    else:
+        print("Downloading annotations")
+        annotation_uris = [annotation for annotation in annotation_uris if get_segment_name(annotation) not in existing_annotations]
+        for annotations in tqdm(chunks(annotation_uris, chunk_size), unit_scale=chunk_size):
+            uri_string = " ".join(['"' + annotation + '"' for annotation in annotations])
+            command = f"gsutil -m cp {uri_string} {annotations_directory}"
+            subprocess.call(command, shell=True, stdout=DEVNULL, stderr=DEVNULL)
+
+        print("Combining annotations")
+        combine_annotations(annotations_directory, nth_frame)
 
     print("Downloading images")
     download_images(f"{annotations_directory}/combined_annotations.json", images_directory, chunk_size)
