@@ -136,3 +136,6 @@ yolo/runs/
 yolo/data/train/
 yolo/data/validation/
 yolo/*.json
+
+# Data files
+data/
