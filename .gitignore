@@ -139,3 +139,4 @@ yolo/*.json
 
 # Data files
 data/
+model/train/wandb/

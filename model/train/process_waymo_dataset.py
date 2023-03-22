@@ -1,18 +1,14 @@
 import os
-import sys
 import json
 
 import numpy as np
 import pandas as pd
 from PIL import Image
 import cv2
-import argparse
 from multiprocessing import Manager, Pool
 
 import torch
 import torch.utils.data as data
-
-from google.cloud import storage
 
 from autonomoeye.utils.image_utils import annotations_to_df
 
@@ -20,19 +16,13 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 class ProcessWaymoDataset(data.Dataset):
-    def __init__(self, local_path, gcp_annotations_path, cat_names, cat_ids, resize, area_limit, test_dataset = False):
+    def __init__(self, data_path, cat_names, cat_ids, resize, area_limit, test_dataset = False):
         super(ProcessWaymoDataset, self).__init__()
         
         # filepaths
-        self.gcp_annotations_path = gcp_annotations_path
-        self.local_path = local_path
-        
-
-        self.dataset_name =  self.gcp_annotations_path.split('/')[-1].replace('.json','')
-        self.dataset_path =  local_path +'/'.join(gcp_annotations_path.split('/')[:-2]) 
-        self.path_to_images = self.dataset_path.replace('annotations','')+'images/'
-        self.path_to_annotations = self.dataset_path + '/{}.json'.format(self.dataset_name)
-        self.path_to_processed_images = self.dataset_path.replace('annotations','')+'processed_images/'
+        self.data_path = data_path
+        self.path_to_annotations = self.data_path+'/combined_annotations.json'
+        self.path_to_processed_images = self.data_path+'/processed_images/'
         
         # high level summary values
         self.num_classes = len(cat_names)
@@ -48,11 +38,13 @@ class ProcessWaymoDataset(data.Dataset):
         # setup data directory
         print('Setting up data directories...')
         print(self.path_to_processed_images)
-        if os.path.exists(self.path_to_processed_images)==False:
-            print("Folder exists")
+        if os.path.isfile(self.data_path+'/processed_annotations.csv')==False:
             if test_dataset==False:
-                os.mkdir(self.path_to_processed_images)
+                if not os.path.exists(self.path_to_processed_images):
+                    os.mkdir(self.path_to_processed_images)
         
+                self.processed_images = [img for img in os.listdir(self.path_to_processed_images) if os.path.isfile(os.path.join(self.path_to_processed_images, img))]
+
                 # read annotations file
                 print("Reading Annotation")
                 f = open(self.path_to_annotations,'r')
@@ -61,19 +53,19 @@ class ProcessWaymoDataset(data.Dataset):
 
                 # convert annotations to dataframe
                 print('Processing images...')
-                image_map = {entry['id']:'/'+'/'.join(entry['gcp_url'].split('/')[3::]) for entry in self.annotations['images']}
-                self.annotations_df = annotations_to_df(self.annotations, self.local_path, image_map)
+                image_map = {entry['id']: f"/images/{entry['id']}.jpeg" for entry in self.annotations['images']}
+                self.annotations_df = annotations_to_df(self.annotations, self.data_path, image_map)
                 self.annotations_df['category_id'] = self.annotations_df['category_id'].apply(lambda x: 3 if x==4 else x) # map so categories are contiguous
 
                 # Resize images to be the same size
-                images = [x for x in self.annotations_df.image_id.unique() if int(x.split('_')[5])%5==0] # take every 15th frame from the segment
-                pool = Pool()
+                images = [x for x in self.annotations_df.image_id.unique()]
+                pool = Pool(8)
                 pool.map(self.process_image, images)
                 pool.close()
                 self.shared_list = [item for sublist in self.shared_list for item in sublist]  #flatten
                 self.annotations_df = pd.DataFrame(self.shared_list, columns = ['id','category_id','image_id','area','gcp_path',
                                                                                 'x_min','y_min','width','height','x_max','y_max'])
-                self.annotations_df.to_csv('/'.join(self.path_to_annotations.split('/')[:-1]) + '/processed_annotations.csv', index=False)
+                self.annotations_df.to_csv(self.data_path+'/processed_annotations.csv', index=False)
             else:
                 os.mkdir(self.path_to_processed_images)
                 
@@ -82,7 +74,7 @@ class ProcessWaymoDataset(data.Dataset):
                 self.annotations = json.load(f)
                 f.close()
                 
-                image_map = {entry['id']:'/'+'/'.join(entry['gcp_url'].split('/')[3::]) for entry in self.annotations['images']}
+                image_map = {entry['id']: f"/images/{entry['id']}.jpeg" for entry in self.annotations['images']}
 
                 for entry in self.annotations['images']:
                     img = cv2.imread(self.local_path + image_map[entry['id']])
@@ -94,7 +86,7 @@ class ProcessWaymoDataset(data.Dataset):
             f = open(self.path_to_annotations,'r')
             self.annotations = json.load(f)
             f.close()
-            self.annotations_df = pd.read_csv('/'.join(self.path_to_annotations.split('/')[:-1]) + '/processed_annotations.csv')
+            self.annotations_df = pd.read_csv(self.data_path+'/processed_annotations.csv')
         
         # Drop bounding boxes which are too small
         self.annotations_df['area'] = (self.annotations_df['x_max'] - self.annotations_df['x_min'])*(self.annotations_df['y_max'] - self.annotations_df['y_min'])
@@ -102,21 +94,30 @@ class ProcessWaymoDataset(data.Dataset):
         
 
         # Drop images without annotations
-        self.annotations['images'] = [x for x in self.annotations['images'] if x['id'] in self.annotations_df['image_id'].unique()]
-        self.annotations['images'] = [x for x in self.annotations['images'] if x['id'] in self.annotations_df['image_id'].unique()]
+        unique_images = self.annotations_df['image_id'].unique()
+        self.annotations['images'] = [x for x in self.annotations['images'] if x['id'] in unique_images]
+        self.annotations['images'] = [x for x in self.annotations['images'] if x['id'] in unique_images]
 
     def process_image(self, image):
-        tmp_df = self.annotations_df[self.annotations_df['image_id']==image]
-        img = cv2.imread(tmp_df['gcp_path'].unique()[0])
-        img_resized = cv2.resize(img, (self.resize[0], self.resize[1]), interpolation=cv2.INTER_CUBIC)
-        cv2.imwrite(self.path_to_processed_images+tmp_df['gcp_path'].unique()[0].split('/')[-1], img_resized)
-        scale = np.flipud(np.divide(img_resized.shape[:-1], img.shape[:-1]))
-        for index, row in tmp_df.iterrows():
-            tmp_df.loc[index,['x_min','x_max']] *=scale[0]
-            tmp_df.loc[index,['y_min','y_max']] *=scale[1]
-            tmp_df.loc[index,'height'] = tmp_df.loc[index,'x_max'] - tmp_df.loc[index,'x_min']
-            tmp_df.loc[index,'width'] =  tmp_df.loc[index,'y_max'] - tmp_df.loc[index,'y_min']
-        self.shared_list.append(tmp_df.values)
+        try:
+            img = cv2.imread(f"{self.data_path}/images/{image}.jpeg")
+            img_resized = cv2.resize(img, (self.resize[0], self.resize[1]), interpolation=cv2.INTER_CUBIC)
+            if image+".jpeg" not in self.processed_images:
+                cv2.imwrite(f"{self.path_to_processed_images}/{image}.jpeg", img_resized)
+            scale = np.flipud(np.divide(img_resized.shape[:-1], img.shape[:-1]))
+        except:
+            print(f"Warning: Error prcessing {image}")
+            return
+        try:
+            tmp_df = self.annotations_df[self.annotations_df['image_id']==image]
+            for index, row in tmp_df.iterrows():
+                tmp_df.loc[index,['x_min','x_max']] *=scale[0]
+                tmp_df.loc[index,['y_min','y_max']] *=scale[1]
+                tmp_df.loc[index,'height'] = tmp_df.loc[index,'x_max'] - tmp_df.loc[index,'x_min']
+                tmp_df.loc[index,'width'] =  tmp_df.loc[index,'y_max'] - tmp_df.loc[index,'y_min']
+            self.shared_list.append(tmp_df.values)
+        except:
+            print(f"Warning: No annotations found for {image}")
 
     
     def __getitem__(self, idx):
