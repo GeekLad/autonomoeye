@@ -176,6 +176,7 @@ def combine_annotations(annotations_directory, nth_frame=25):
                     image_ids.add(image["id"])
 
             for annotation in coco_data["annotations"]:
+                annotation["image_id"] = re.sub(r"\.jpeg$", "", annotation["image_id"])
                 if annotation["image_id"] in image_ids:
                     combined_annotations["annotations"].append(annotation)
         except:
