@@ -13,7 +13,7 @@ import torchvision
 
 from process_waymo_dataset import ProcessWaymoDataset
 from autonomoeye.utils.train_utils import get_fast_rcnn, track_metrics, collate_fn, \
-    get_custom_backbone_fast_rcnn, calc_precision_recall
+    get_custom_backbone_fast_rcnn, calc_precision_recall, bb_intersection_over_union
 
 import sklearn.metrics
 from sklearn.metrics import average_precision_score, recall_score, auc
@@ -22,15 +22,16 @@ import wandb
 
 
 def evaluate(model, valid_dataloader, iou_vals, nms_thresh):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
     gt = []  # list of ground truth boxes per image
     preds = []  # list of predictions  per image
     with torch.no_grad():
         for imgs, annotations in tqdm(valid_dataloader):
-            gt.extend([{k: v for k, v in t.items()} for t in annotations])
+            gt.extend([{k: v.to(device) for k, v in t.items()} for t in annotations])
 
             keeps = []  # nms indices to keep
-            imgs = [img for img in imgs]
+            imgs = [img.to(device) for img in imgs]
             model_preds = model(imgs)
             # perform nms over predicted bounding boxes
             for entry in model_preds:
@@ -99,7 +100,7 @@ def evaluate(model, valid_dataloader, iou_vals, nms_thresh):
 
 def train(model, optimizer, lr_scheduler, train_dataloader, valid_dataloader, wandb_config):
 
-    base_path = '/content/drive/MyDrive/Colab_Notebooks/waymo/model'
+    base_path = '/home/jasierra/autonomoeye/model'
     iou_vals = [0.2, 0.4, 0.6, 0.8]
     nms_threshold = 0.1
 
@@ -116,11 +117,11 @@ def train(model, optimizer, lr_scheduler, train_dataloader, valid_dataloader, wa
         rpn_losses = []
         for imgs, annotations in tqdm(train_dataloader):
             # Push data to device
-            imgs = [img.to(device) for img in imgs]
+            train_imgs = [img.to(device) for img in imgs]
             annotations = [{k: v.to(device) for k, v in t.items()} for t in annotations]
 
             # Perform forward pass
-            loss_dict = model(imgs, annotations)
+            loss_dict = model(train_imgs, annotations)
             print(loss_dict)
             losses = sum(loss for loss in loss_dict.values())
 
