@@ -92,7 +92,6 @@ class ProcessWaymoDataset(data.Dataset):
         self.annotations_df['area'] = (self.annotations_df['x_max'] - self.annotations_df['x_min'])*(self.annotations_df['y_max'] - self.annotations_df['y_min'])
         self.annotations_df = self.annotations_df[self.annotations_df['area']>self.area_limit]
         self.annotations_df = self.annotations_df.drop_duplicates("id")
-        
 
         # Drop images without annotations
         unique_images = self.annotations_df['image_id'].unique()

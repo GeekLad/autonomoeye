@@ -4,6 +4,7 @@ import yaml
 import argparse
 
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 
@@ -61,8 +62,9 @@ def evaluate(model, valid_dataloader, iou_vals, nms_thresh):
             gt_label = gt[img_idx]['labels'][np.argmax(ious)]
             label = preds[img_idx]['labels'][pred_idx]
             score = preds[img_idx]['scores'][pred_idx]
-            final_vals.append([img_idx, label, gt_label.numpy(), score, pred_box[0], pred_box[1], pred_box[2],
-                              pred_box[3], gt_box[0].numpy(), gt_box[1].numpy(), gt_box[2].numpy(), gt_box[3].numpy(), np.max(ious)])
+            final_vals.append([img_idx, label, gt_label.detach().to("cpu").numpy(), score, pred_box[0], pred_box[1], pred_box[2],
+                              pred_box[3], gt_box[0].detach().to("cpu").numpy(), gt_box[1].detach().to("cpu").numpy(),
+                              gt_box[2].detach().to("cpu").numpy(), gt_box[3].detach().to("cpu").numpy(), np.max(ious)])
 
     eval_df = pd.DataFrame(final_vals, columns=['image_id', 'pred_label', 'gt_label', 'confidence_score',
                            'pred_x1', 'pred_y1', 'pred_x2', 'pred_y2', 'gt_x1', 'gt_y1', 'gt_x2', 'gt_y2', 'iou'])
@@ -193,9 +195,9 @@ print("Processing validation data")
 val_dataset = ProcessWaymoDataset('/home/jasierra/autonomoeye/data/validation', CATEGORY_NAMES, CATEGORY_IDS, RESIZE, AREA_LIMIT)
 
 train_dataloader = data.DataLoader(
-    train_dataset, batch_size=4, collate_fn=collate_fn)
+    train_dataset, batch_size=6, collate_fn=collate_fn)
 valid_dataloader = data.DataLoader(
-    val_dataset, batch_size=4, collate_fn=collate_fn)
+    val_dataset, batch_size=6, collate_fn=collate_fn)
 
 
 # Initialize model and optimizer
