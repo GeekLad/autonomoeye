@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pandas = "*"
+notebook = "*"
+protobuf = "==3.20.*"
+waymo-open-dataset-tf-2-6-0 = "*"
+google-cloud-storage = "*"
+gcsfs = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.8"

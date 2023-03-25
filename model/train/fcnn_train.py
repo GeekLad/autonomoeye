@@ -4,6 +4,7 @@ import yaml
 import argparse
 
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 
@@ -13,7 +14,7 @@ import torchvision
 
 from process_waymo_dataset import ProcessWaymoDataset
 from autonomoeye.utils.train_utils import get_fast_rcnn, track_metrics, collate_fn, \
-    get_custom_backbone_fast_rcnn, calc_precision_recall
+    get_custom_backbone_fast_rcnn, calc_precision_recall, bb_intersection_over_union
 
 import sklearn.metrics
 from sklearn.metrics import average_precision_score, recall_score, auc
@@ -22,15 +23,16 @@ import wandb
 
 
 def evaluate(model, valid_dataloader, iou_vals, nms_thresh):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
     gt = []  # list of ground truth boxes per image
     preds = []  # list of predictions  per image
     with torch.no_grad():
         for imgs, annotations in tqdm(valid_dataloader):
-            gt.extend([{k: v for k, v in t.items()} for t in annotations])
+            gt.extend([{k: v.to(device) for k, v in t.items()} for t in annotations])
 
             keeps = []  # nms indices to keep
-            imgs = [img for img in imgs]
+            imgs = [img.to(device) for img in imgs]
             model_preds = model(imgs)
             # perform nms over predicted bounding boxes
             for entry in model_preds:
@@ -60,8 +62,9 @@ def evaluate(model, valid_dataloader, iou_vals, nms_thresh):
             gt_label = gt[img_idx]['labels'][np.argmax(ious)]
             label = preds[img_idx]['labels'][pred_idx]
             score = preds[img_idx]['scores'][pred_idx]
-            final_vals.append([img_idx, label, gt_label.numpy(), score, pred_box[0], pred_box[1], pred_box[2],
-                              pred_box[3], gt_box[0].numpy(), gt_box[1].numpy(), gt_box[2].numpy(), gt_box[3].numpy(), np.max(ious)])
+            final_vals.append([img_idx, label, gt_label.detach().to("cpu").numpy(), score, pred_box[0], pred_box[1], pred_box[2],
+                              pred_box[3], gt_box[0].detach().to("cpu").numpy(), gt_box[1].detach().to("cpu").numpy(),
+                              gt_box[2].detach().to("cpu").numpy(), gt_box[3].detach().to("cpu").numpy(), np.max(ious)])
 
     eval_df = pd.DataFrame(final_vals, columns=['image_id', 'pred_label', 'gt_label', 'confidence_score',
                            'pred_x1', 'pred_y1', 'pred_x2', 'pred_y2', 'gt_x1', 'gt_y1', 'gt_x2', 'gt_y2', 'iou'])
@@ -99,7 +102,7 @@ def evaluate(model, valid_dataloader, iou_vals, nms_thresh):
 
 def train(model, optimizer, lr_scheduler, train_dataloader, valid_dataloader, wandb_config):
 
-    base_path = '/content/drive/MyDrive/Colab_Notebooks/waymo/model'
+    base_path = '/home/jasierra/autonomoeye/model'
     iou_vals = [0.2, 0.4, 0.6, 0.8]
     nms_threshold = 0.1
 
@@ -116,11 +119,11 @@ def train(model, optimizer, lr_scheduler, train_dataloader, valid_dataloader, wa
         rpn_losses = []
         for imgs, annotations in tqdm(train_dataloader):
             # Push data to device
-            imgs = [img.to(device) for img in imgs]
+            train_imgs = [img.to(device) for img in imgs]
             annotations = [{k: v.to(device) for k, v in t.items()} for t in annotations]
 
             # Perform forward pass
-            loss_dict = model(imgs, annotations)
+            loss_dict = model(train_imgs, annotations)
             print(loss_dict)
             losses = sum(loss for loss in loss_dict.values())
 
@@ -192,9 +195,9 @@ print("Processing validation data")
 val_dataset = ProcessWaymoDataset('/home/jasierra/autonomoeye/data/validation', CATEGORY_NAMES, CATEGORY_IDS, RESIZE, AREA_LIMIT)
 
 train_dataloader = data.DataLoader(
-    train_dataset, batch_size=4, collate_fn=collate_fn)
+    train_dataset, batch_size=6, collate_fn=collate_fn)
 valid_dataloader = data.DataLoader(
-    val_dataset, batch_size=4, collate_fn=collate_fn)
+    val_dataset, batch_size=6, collate_fn=collate_fn)
 
 
 # Initialize model and optimizer
