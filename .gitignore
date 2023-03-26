@@ -137,6 +137,8 @@ yolo/data/train/
 yolo/data/validation/
 yolo/*.json
 
-# Data files
+# Data/output files
 data/
 model/train/wandb/
+model/model_weights*
+model/predictions*

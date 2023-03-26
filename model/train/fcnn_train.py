@@ -21,8 +21,11 @@ from sklearn.metrics import average_precision_score, recall_score, auc
 
 import wandb
 
+BASE_PATH = '/home/jasierra/autonomoeye/model'
+DATA_PATH = '/home/jasierra/autonomoeye/data'
 
-def evaluate(model, valid_dataloader, iou_vals, nms_thresh):
+def evaluate(model, valid_dataloader, iou_vals, nms_thresh, epoch):
+    base_path = BASE_PATH
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
     gt = []  # list of ground truth boxes per image
@@ -68,6 +71,8 @@ def evaluate(model, valid_dataloader, iou_vals, nms_thresh):
 
     eval_df = pd.DataFrame(final_vals, columns=['image_id', 'pred_label', 'gt_label', 'confidence_score',
                            'pred_x1', 'pred_y1', 'pred_x2', 'pred_y2', 'gt_x1', 'gt_y1', 'gt_x2', 'gt_y2', 'iou'])
+    
+    eval_df.to_csv(f"{base_path}/predictions_{epoch}.csv", index=False)
 
     vehicle_aps = []
     pedestrian_aps = []
@@ -78,7 +83,7 @@ def evaluate(model, valid_dataloader, iou_vals, nms_thresh):
         precision_pedestrians, recall_pedestrians = calc_precision_recall(
             eval_df, 2, iou)
         precision_cyclists, recall_cyclists = calc_precision_recall(
-            eval_df, 3, iou)
+            eval_df, 4, iou)
 
         if precision_vehicles is not None:
             vehicle_aps.append(auc(recall_vehicles, precision_vehicles))
@@ -93,16 +98,17 @@ def evaluate(model, valid_dataloader, iou_vals, nms_thresh):
     cyclist_map = np.mean(cyclist_aps)
     total_map = np.mean(vehicle_aps + pedestrian_aps + cyclist_aps)
 
-    wandb.log({'vehicles_map': vehicles_map,
-               'pedestrians_map': pedestrians_map,
-               'cyclist_map': cyclist_map,
-               'total_map': total_map
-               })
+    maps = {'vehicles_map': vehicles_map,
+            'pedestrians_map': pedestrians_map,
+            'cyclist_map': cyclist_map,
+            'total_map': total_map
+            }
 
+    wandb.log(maps)
 
 def train(model, optimizer, lr_scheduler, train_dataloader, valid_dataloader, wandb_config):
 
-    base_path = '/home/jasierra/autonomoeye/model'
+    base_path = BASE_PATH
     iou_vals = [0.2, 0.4, 0.6, 0.8]
     nms_threshold = 0.1
 
@@ -162,7 +168,7 @@ def train(model, optimizer, lr_scheduler, train_dataloader, valid_dataloader, wa
 
         # Evaluation on validation data
         print('Evaluating model on validation set...')
-        evaluate(model, valid_dataloader, iou_vals, nms_threshold)
+        evaluate(model, valid_dataloader, iou_vals, nms_threshold, epoch)
 
 # Setup weights and biases and gcp connection
 hyperparameter_defaults = dict(
@@ -185,14 +191,14 @@ wandb_config = wandb.config
 # Training and Validation datasets
 
 CATEGORY_NAMES = ['TYPE_VEHICLE', 'TYPE_PEDESTRIAN', 'TYPE_CYCLIST']
-CATEGORY_IDS = [1, 2, 3]
+CATEGORY_IDS = [1, 2, 4]
 RESIZE = [1152, 768]
 AREA_LIMIT = 100
 
 print("Processing training data")
-train_dataset = ProcessWaymoDataset('/home/jasierra/autonomoeye/data/train', CATEGORY_NAMES, CATEGORY_IDS, RESIZE, AREA_LIMIT)
+train_dataset = ProcessWaymoDataset(DATA_PATH+'/train', CATEGORY_NAMES, CATEGORY_IDS, RESIZE, AREA_LIMIT)
 print("Processing validation data")
-val_dataset = ProcessWaymoDataset('/home/jasierra/autonomoeye/data/validation', CATEGORY_NAMES, CATEGORY_IDS, RESIZE, AREA_LIMIT)
+val_dataset = ProcessWaymoDataset(DATA_PATH+'/validation', CATEGORY_NAMES, CATEGORY_IDS, RESIZE, AREA_LIMIT)
 
 train_dataloader = data.DataLoader(
     train_dataset, batch_size=6, collate_fn=collate_fn)
