@@ -21,11 +21,10 @@ from sklearn.metrics import average_precision_score, recall_score, auc
 
 import wandb
 
-BASE_PATH = '/home/jasierra/autonomoeye/model'
-DATA_PATH = '/home/jasierra/autonomoeye/data'
+BASE_PATH = '/scratch/siads699w23_class_root/siads699w23_class/jasierra/model'
+DATA_PATH = '/scratch/siads699w23_class_root/siads699w23_class/jasierra/data'
 
 def evaluate(model, valid_dataloader, iou_vals, nms_thresh, epoch):
-    base_path = BASE_PATH
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
     gt = []  # list of ground truth boxes per image
@@ -72,7 +71,7 @@ def evaluate(model, valid_dataloader, iou_vals, nms_thresh, epoch):
     eval_df = pd.DataFrame(final_vals, columns=['image_id', 'pred_label', 'gt_label', 'confidence_score',
                            'pred_x1', 'pred_y1', 'pred_x2', 'pred_y2', 'gt_x1', 'gt_y1', 'gt_x2', 'gt_y2', 'iou'])
     
-    eval_df.to_csv(f"{base_path}/predictions_{epoch}.csv", index=False)
+    eval_df.to_csv(f"{BASE_PATH}/predictions_{epoch}.csv", index=False)
 
     vehicle_aps = []
     pedestrian_aps = []
@@ -108,7 +107,6 @@ def evaluate(model, valid_dataloader, iou_vals, nms_thresh, epoch):
 
 def train(model, optimizer, lr_scheduler, train_dataloader, valid_dataloader, wandb_config):
 
-    base_path = BASE_PATH
     iou_vals = [0.2, 0.4, 0.6, 0.8]
     nms_threshold = 0.1
 
@@ -162,9 +160,9 @@ def train(model, optimizer, lr_scheduler, train_dataloader, valid_dataloader, wa
                       objectness_loss, rpn_loss, epoch)
 
         print('Saving model weights...')
-        torch.save(model.state_dict(), base_path +
+        torch.save(model.state_dict(), BASE_PATH +
                    "/model_weights_{}.pth".format(epoch))
-        wandb.save(base_path + "/model_weights_{}.pth".format(epoch))
+        wandb.save(BASE_PATH + "/model_weights_{}.pth".format(epoch))
 
         # Evaluation on validation data
         print('Evaluating model on validation set...')
