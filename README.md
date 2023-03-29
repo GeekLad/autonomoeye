@@ -127,19 +127,24 @@ In addition to combining the annotations, we also had to resize the images.  Tha
 
 For object detection we need to build a model and teach it to learn to both recognize and localize objects in the image. The Faster R-CNN model takes the following approach: The Image first passes through the backbone network to get an output feature map, and the ground truth bounding boxes of the image get projected onto the feature map. The backbone network is usually a dense convolutional network like ResNet or MobileNet. The output feature map is a spatially dense Tensor that represents the learned features of the image. Next, we treat each point on this feature map as an anchor. For each anchor, we generate multiple boxes of different sizes and shapes. The purpose of these anchor boxes is to capture objects in the image.
 
-We use a 1x1 convolutional network to predict the category and the offsets of all the anchor boxes. During training, we sample the anchor boxes that overlap the most with the projected ground truth boxes. These are called positive or activated anchor boxes. We also sample negative anchor boxes which have little to no overlap with the ground truth boxes. The positive anchor boxes are assigned the category object, while the negative boxes are assigned background. The network learns to classify anchor boxes using binary cross-entropy loss. Now, the positive anchor boxes may not exactly align with the projected ground truth boxes. So we train a similar 1x1 convolutional network to learn to predict offsets from ground truth boxes. These offsets when applied to the anchor boxes bring them closer to the ground truth boxes. We use L2 regression loss to learn the offsets. The anchor boxes are transformed using the predicted offsets and are called region proposals, and the network described above is called the region proposal network.
+We used a 1x1 convolutional network to predict the category and the offsets of all the anchor boxes. During training, we sample the anchor boxes that overlap the most with the projected ground truth boxes. These are called positive or activated anchor boxes. We also sample negative anchor boxes which have little to no overlap with the ground truth boxes. The positive anchor boxes are assigned the category object, while the negative boxes are assigned background. The network learns to classify anchor boxes using binary cross-entropy loss. Now, the positive anchor boxes may not exactly align with the projected ground truth boxes. So we train a similar 1x1 convolutional network to learn to predict offsets from ground truth boxes. These offsets when applied to the anchor boxes bring them closer to the ground truth boxes. We use L2 regression loss to learn the offsets. The anchor boxes are transformed using the predicted offsets and are called region proposals, and the network described above is called the region proposal network.
 
-We learn to predict the category of the object in the region proposal using a simple convolutional network. The raw region proposals are of different sizes, so we use a technique called ROI pooling to resize them before passing through the network. This network learns to predict multiple categories using cross-entropy loss. We use another network to predict offsets of region proposals from ground truth boxes. This network further tries to align region proposals with ground truth boxes. This uses L2 regression loss. Finally we take a weighed combination of both the losses to compute the final loss.
+We predicted the category of the object in the region proposal using a simple convolutional network. The raw region proposals are of different sizes, so we use a technique called ROI pooling to resize them before passing through the network. This network learns to predict multiple categories using cross-entropy loss. We used another network to predict offsets of region proposals from ground truth boxes. This network further tries to align region proposals with ground truth boxes. This uses L2 regression loss. Finally we take a weighed combination of both the losses to compute the final loss.
 
 ![frcnn][frcnn-screenshot]
 
 
 ## Model Training
+In PyTorch, it’s considered a best practice to create a class that inherits from PyTorch’s Dataset class to load the data. This will give us more control over the data and helps keep the code modular. We created a PyTorch DataLoader from the dataset instance which automatically take care of batching, shuffling, and sampling the data.
 
+We used ResNet 50 and Mobilenet as the backbone networks. A single block in ResNet 50 is composed of stacks of bottleneck layers. The Image gets reduced in half after each block along the spatial dimension while the number of channels get doubled. A bottleneck layer is composed of three convolutional layers along with a skip connection. Once an image passes through the backbone network, it gets downsampled along the spatial dimension. 
 
+![train][train]
 
 ## Model Evaluation
+We used PyTorch DataLoader to create the validation dataload as well. Model evaluation provides the Predicted Bounding Boxes based on the ground truth bunding boxes. Then we performed NMS - Non maximum Supression before calculating the IOU to get the precision and recall.
 
+![eval][eval]
 
 ## User Interface
 
@@ -153,7 +158,8 @@ We learn to predict the category of the object in the region proposal using a si
 [tech-screenshot]: images/tech_view.png
 [data-processing]: images/data_processing.png
 [frcnn-screenshot]: images/fastrcnn.png
-
+[train]: images/train.png
+[eval]: images/eval.png
 
 
 
