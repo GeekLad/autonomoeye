@@ -106,11 +106,39 @@ Here are the major frameworks/libraries used in our project.
 ![tech][tech-screenshot]
 
 
+## Data Processing
 
 
+## Faster R CNN Model
+
+For object detection we need to build a model and teach it to learn to both recognize and localize objects in the image. The Faster R-CNN model takes the following approach: The Image first passes through the backbone network to get an output feature map, and the ground truth bounding boxes of the image get projected onto the feature map. The backbone network is usually a dense convolutional network like ResNet or MobileNet. The output feature map is a spatially dense Tensor that represents the learned features of the image. Next, we treat each point on this feature map as an anchor. For each anchor, we generate multiple boxes of different sizes and shapes. The purpose of these anchor boxes is to capture objects in the image.
+
+We use a 1x1 convolutional network to predict the category and the offsets of all the anchor boxes. During training, we sample the anchor boxes that overlap the most with the projected ground truth boxes. These are called positive or activated anchor boxes. We also sample negative anchor boxes which have little to no overlap with the ground truth boxes. The positive anchor boxes are assigned the category object, while the negative boxes are assigned background. The network learns to classify anchor boxes using binary cross-entropy loss. Now, the positive anchor boxes may not exactly align with the projected ground truth boxes. So we train a similar 1x1 convolutional network to learn to predict offsets from ground truth boxes. These offsets when applied to the anchor boxes bring them closer to the ground truth boxes. We use L2 regression loss to learn the offsets. The anchor boxes are transformed using the predicted offsets and are called region proposals, and the network described above is called the region proposal network.
+
+We learn to predict the category of the object in the region proposal using a simple convolutional network. The raw region proposals are of different sizes, so we use a technique called ROI pooling to resize them before passing through the network. This network learns to predict multiple categories using cross-entropy loss. We use another network to predict offsets of region proposals from ground truth boxes. This network further tries to align region proposals with ground truth boxes. This uses L2 regression loss. Finally we take a weighed combination of both the losses to compute the final loss.
+
+![frcnn][frcnn-screenshot]
+
+
+## Model Training
+
+
+
+## Model Evaluation
+
+
+## User Interface
+
+
+## Results
 
 
 
 [waymo-screenshot]: images/waymo.png
 [system-screenshot]: images/system_view.png
 [tech-screenshot]: images/tech_view.png
+[frcnn-screenshot]: images/fastrcnn.png
+
+
+
+
