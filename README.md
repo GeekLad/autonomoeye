@@ -107,7 +107,21 @@ Here are the major frameworks/libraries used in our project.
 
 
 ## Data Processing
+The [Waymo Open Dataset](https://waymo.com/open/) is stored in a [Google Cloud Platform (GCP)](https://cloud.google.com/) [Storage Bucket](https://cloud.google.com/storage/), and is split into hundreds of [TensorFlow TFRecord](https://www.tensorflow.org/tutorials/load_data/tfrecord) segments.  Each segment contains approximately 1,000 images and related data, including labelled annotations for vehicles, pedestrians, signs, and cyclists.  Below is an overview of how the data was processed
 
+![data][data-processing]
+
+We processed the data in two stages:
+
+### Extraction from the GCP Bucket
+First the data needed to be parsed from the TFRecordset files.  We developed a Python script to load each segment, iterate through each frame, download each of the images, and gather all the annotations into a single file (per segment).  This process checked for existing annotations and image files so that they could be resumed if interrupted.  It also alowed for multiple instances to be run simultaneously, which helped to speed up processing.  
+
+We utilized GCP VMs and personal computers to perform this processing step.  The data was stored in another Google Cloud Storage bucket that we created for the project. This was so that we could ensure we could store the data in a centralized repository without storage space limitations.
+
+### Placement into Training Environment
+The next step in the process was to place the data into the training environment, and perform some necessary transformations.  In our project storage bucket, there was one `.json` annotation file per segment.  For simplification of training, when downloading from the project bucket to the training environment, we combined them into a single `.json` annotation file.
+
+In addition to combining the annotations, we also had to resize the images.  That also resulted in having to make updates to the annotations, due to the changes in the bounding boxes for the detected objects in the images.  These were also placed into a single file to facilitate the training process.
 
 ## Faster R CNN Model
 
@@ -137,6 +151,7 @@ We learn to predict the category of the object in the region proposal using a si
 [waymo-screenshot]: images/waymo.png
 [system-screenshot]: images/system_view.png
 [tech-screenshot]: images/tech_view.png
+[data-processing]: images/data_processing.png
 [frcnn-screenshot]: images/fastrcnn.png
 
 
