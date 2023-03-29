@@ -82,14 +82,14 @@ def evaluate(model, valid_dataloader, iou_vals, nms_thresh, epoch):
         precision_pedestrians, recall_pedestrians = calc_precision_recall(
             eval_df, 2, iou)
         precision_cyclists, recall_cyclists = calc_precision_recall(
-            eval_df, 4, iou)
+            eval_df, 3, iou)
 
-        if precision_vehicles is not None:
+        if precision_vehicles is not None and len(recall_vehicles) > 1:
             vehicle_aps.append(auc(recall_vehicles, precision_vehicles))
-        if precision_pedestrians is not None:
+        if precision_pedestrians is not None and len(recall_pedestrians) > 1:
             pedestrian_aps.append(
                 auc(recall_pedestrians, precision_pedestrians))
-        if precision_cyclists is not None:
+        if precision_cyclists is not None and len(recall_pedestrians) > 1:
             cyclist_aps.append(auc(recall_cyclists, precision_cyclists))
 
     vehicles_map = np.mean(vehicle_aps)
