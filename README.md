@@ -18,29 +18,29 @@
   <summary>Table of Contents</summary>
   <ol>
     <li>
-      <a href="#overview">Project Overview</a>
+      <a href="#project-overview">Project Overview</a>
     </li>
     <li>
-      <a href="#dataset">Waymo Dataset</a>
+      <a href="#waymo-dataset">Waymo Dataset</a>
       <ul>
-        <li><a href="#waymo">Images</a></li>
-        <li><a href="#waymo">Annotations</a></li>
-        <li><a href="#waymo">Metadata</a></li>
+        <li><a href="#images">Images</a></li>
+        <li><a href="#annotations">Annotations</a></li>
+        <li><a href="#metadata">Metadata</a></li>
       </ul>
     </li>
     <li>
-      <a href="#arch">Architecture</a>
+      <a href="#architecture">Architecture</a>
       <ul>
-        <li><a href="#system">System View</a></li>
-        <li><a href="#tech">Technology View</a></li>
+        <li><a href="#system_view">System View</a></li>
+        <li><a href="#technology_view">Technology View</a></li>
       </ul>
     </li>
-    <li><a href="#process">Data Processing</a></li>
-    <li><a href="#model">Faster R-CNN Model</a></li>
-    <li><a href="#train">Model Training</a></li>
-    <li><a href="#eval">Model Evaluation</a></li>
-    <li><a href="#ui">User Interface</a></li>
-    <li><a href="#Results">Results</a></li>
+    <li><a href="#data_processing">Data Processing</a></li>
+    <li><a href="#faster_r_cnn_model">Faster R CNN Model</a></li>
+    <li><a href="#model_training">Model Training</a></li>
+    <li><a href="#model_evaluation">Model Evaluation</a></li>
+    <li><a href="#user_interface">User Interface</a></li>
+    <li><a href="#results">Results</a></li>
   </ol>
 </details>
 
@@ -89,8 +89,21 @@ We also have metadata related to the scene and image capture.
 - Weather
 
 
+## Architecture
+
+We have strcutured our architecture components of the project in modules so that the components can be reused and modified. This section provides details on our system view and technology view.
+
+### System View
+Below is our logical system architecture with all the components used to develop the solution.
+
+![system][system-screenshot]
 
 
+### Technology View
+
+Here are the major frameworks/libraries used in our project.
+
+![tech][tech-screenshot]
 
 
 
@@ -99,3 +112,5 @@ We also have metadata related to the scene and image capture.
 
 
 [waymo-screenshot]: images/waymo.png
+[system-screenshot]: images/system_view.png
+[tech-screenshot]: images/tech_view.png
