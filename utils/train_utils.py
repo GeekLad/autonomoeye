@@ -78,22 +78,24 @@ def classify_record(pred_label, gt_label, iou, iou_thresh):
 
 def calc_precision_recall(eval_df, label, iou_thresh):
   try:
-    tmp_df = eval_df[eval_df['gt_label']==label]
-    tmp_df = tmp_df.sort_values(by='confidence_score', ascending=False).reset_index(drop=True)
-    total_positives = tmp_df.shape[0]
-    tmp_df['classification'] = tmp_df.apply(lambda x: classify_record(x['pred_label'], x['gt_label'], x['iou'], 0.5), axis=1)
+        tmp_df = eval_df[eval_df['gt_label']==label]
+        tmp_df = tmp_df.sort_values(by='confidence_score', ascending=False).reset_index(drop=True)
+        total_positives = tmp_df.shape[0]
+        tmp_df['classification'] = tmp_df.apply(lambda x: classify_record(x['pred_label'], x['gt_label'], x['iou'], 0.5), axis=1)
 
-    precision = []
-    recall = []
-    counts = {'TP':0,'FP':0,'TN':0,'FN':0}
-    for classification in list(tmp_df['classification']):
-        counts[classification] +=1
-        precision.append(counts['TP']/(counts['TP']+counts['FP']))
-        recall.append(counts['TP']/total_positives)
-
-    return precision, recall
+        precision = []
+        recall = []
+        counts = {'TP':0,'FP':0,'TN':0,'FN':0}
+        for classification in list(tmp_df['classification']):
+            counts[classification] +=1
+            try:
+                precision.append(counts['TP']/(counts['TP']+counts['FP']))
+            except ZeroDivisionError:
+                precision.append(0)
+            recall.append(counts['TP']/total_positives)                
+        return precision, recall
   except:
-    return None, None
+        return None, None
 
 
 def bb_intersection_over_union(boxA, boxB):
