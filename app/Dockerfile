@@ -2,6 +2,8 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
+ENV FLASK_API_URL=http://localhost:5000/predict
+
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
