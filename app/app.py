@@ -18,6 +18,31 @@ import matplotlib.patches as patches
 import os 
 
 
+def generate_prediction_user_image(imgfile, rest_api, image_path, confidence_threshold=0.6):
+    """
+    This function requests prediction from rest_api and 
+    plots bounding boxes of result over image.
+    """
+    # Make request to prediction api
+    files = {'image': open(imgfile, 'rb')}
+    response = requests.post(rest_api, files=files)
+
+    # Parse response
+    annotations = json.loads(response.content)
+    boxes = [np.array(x).astype(float) for x in annotations['boxes']]
+    labels = np.array(annotations['labels']).astype('int')
+    scores = np.array(annotations['scores']).astype('float')
+
+    # Create new figure
+    img = Image.open(imgfile)
+    pred_fig = plot_annotations(img, boxes, labels, scores, 
+                                confidence_threshold, save_fig_path=image_path)
+
+    return pred_fig
+
+
+rest_api = 'http://ipaddress/predict'
+
 #st.title("AutonomoEye")
 #Page Config
 st.set_page_config(page_title="autonomoeye",  
@@ -130,5 +155,7 @@ if uploaded_img is not None:
     st.write("")
     st.write("Our Model is running its prediction...")
     # Call Model
+    pred_img = generate_prediction_user_image('userupload/tmpImgFile.jpg', rest_api, '/home/tmp_usr.jpeg')
+    st.image(pred_img)
 
 st.markdown("""---""")
