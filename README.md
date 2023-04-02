@@ -85,7 +85,7 @@ We also have metadata related to the scene and image capture.
 
 
 ## Architecture
-We have strcutured our architecture components of the project in modules so that the components can be reused and modified. This section provides details on our system view and technology view.
+We have structured our architecture components of the project in modules so that the components can be reused and modified. This section provides details on our system view and technology view.
 
 ### System View
 Below is our logical system architecture with all the components used to develop the solution.
