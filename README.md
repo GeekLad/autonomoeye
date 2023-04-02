@@ -116,6 +116,39 @@ The next step in the process was to place the data into the training environment
 
 In addition to combining the annotations, we also had to resize the images.  That also resulted in having to make updates to the annotations, due to the changes in the bounding boxes for the detected objects in the images.  These were also placed into a single file to facilitate the training process.
 
+## Executing Data Processing
+
+### Requirements
+
+- Sign up for free access to the [Waymo Open Dataset](https://waymo.com/intl/en_us/open/licensing/)
+- [Install the Google Cloud CLI tools](https://cloud.google.com/sdk/docs/install)
+- [Authenticate with `gcloud`](https://cloud.google.com/sdk/docs/authorizing) using the same email address you used to access the Waymo Open Dataset
+- [Dowload and install Miniconda](https://docs.conda.io/en/latest/miniconda.html)
+- Set up and activate a conda environment with `conda create --name autonomoeye python=3.8.10 && conda activate autonomoeye`
+- Install the required Python packages with `pip install -r requirements.txt`
+
+### Extract from GCP Bucket
+
+The [`dataprocessing/process_coco.py`](dataprocessing/process_coco.py) script should be run from the project directory as follows:
+
+```shell
+export PYTHONPATH=$PWD/..:$PYTHONPATH
+python3 dataprocessing/process_coco.py -b BUCKET_NAME -t DATA_TYPE
+```
+
+`DATA_TYPE` should be set to either `train` or `validation`.  The files will be downloaded and organized in the `BUCKET_NAME`.
+
+### Download Data to Training Environment
+
+The [`utils/gcp.py`](utils/gcp.py.py) script should be run from the project directory as follows:
+
+```shell
+export PYTHONPATH=$PWD/..:$PYTHONPATH
+python3 utils/gcp.py -b BUCKET_NAME -t DATA_TYPE -d DATA_DIRECTORY
+```
+
+`DATA_TYPE` should be set to either `train` or `validation`.  The files will be downloaded locally and stored in `DATA_DIRECTORY`.
+
 ## Faster R CNN Model
 For object detection we need to build a model and teach it to learn to both recognize and localize objects in the image. The Faster R-CNN model takes the following approach: The Image first passes through the backbone network to get an output feature map, and the ground truth bounding boxes of the image get projected onto the feature map. The backbone network is usually a dense convolutional network like ResNet or MobileNet. The output feature map is a spatially dense Tensor that represents the learned features of the image. Next, we treat each point on this feature map as an anchor. For each anchor, we generate multiple boxes of different sizes and shapes. The purpose of these anchor boxes is to capture objects in the image.
 
