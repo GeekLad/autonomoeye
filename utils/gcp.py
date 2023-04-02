@@ -36,51 +36,56 @@ def get_uris(gs_uri):
     Lists all the files under a Google Storage bucket URI.
     This function requires the Google Cloud CLI to be installed.
     '''
-    files = subprocess.check_output(f"gsutil ls {gs_uri}", shell=True)
-    return files.decode("utf-8").split("\n")
-
-
-def get_annotation_uris(datatype="train"):
-    '''Obtains all of the annotation URIs from the capstone project bucket'''
     try:
-        return get_uris(f"gs://waymo-processed-images/{datatype}/annotations/**/*.json")
+        files = subprocess.check_output(f"gsutil ls {gs_uri}", shell=True)
+        return files.decode("utf-8").split("\n")
     except:
         return []
 
 
-def get_all_waymo_segment_uris(datatype="train"):
+def get_annotation_uris(bucket="waymo-processed-images", datatype="train"):
+    '''Obtains all of the annotation URIs from the capstone project bucket'''
+    try:
+        return get_uris(f"gs://{bucket}/{datatype}/annotations/**/*.json")
+    except:
+        return []
+
+
+def get_all_waymo_segment_uris(bucket="waymo-processed-images", datatype="train"):
     if datatype == "train":
         datatype = "training"
     return get_uris(f"gs://waymo_open_dataset_v_1_4_1/individual_files/{datatype}/*.tfrecord")
 
 
-def get_segments_with_images(datatype):
+def get_segments_with_images(bucket="waymo-processed-images", datatype="train"):
     image_uris = get_uris(
-        f"gs://waymo-processed-images/{datatype}/images/**/*.jpeg")
+        f"gs://{bucket}/{datatype}/images/**/*.jpeg")
+    if len(image_uris) == 0:
+        return []
     segments_with_images = {get_segment_name(uri) for uri in image_uris}
     segments_with_images.remove("")
     return list(segments_with_images)
 
 
-def get_segments_missing_annotations(datatype):
-    annotation_uris = get_annotation_uris(datatype)
-    uris = get_all_waymo_segment_uris(datatype)
+def get_segments_missing_annotations(bucket="waymo-processed-images", datatype="train"):
+    annotation_uris = get_annotation_uris(bucket, datatype)
+    uris = get_all_waymo_segment_uris(bucket, datatype)
     processed_segments = [get_segment_name(uri) for uri in annotation_uris]
     all_segments = [get_segment_name(uri) for uri in uris]
     return [uri for uri in all_segments if uri not in processed_segments]
 
 
-def get_missing_segments(datatype):
-    segments_with_images = get_segments_with_images(datatype)
+def get_missing_segments(bucket="waymo-processed-images", datatype="train"):
+    segments_with_images = get_segments_with_images(bucket, datatype)
     all_segments = [get_segment_name(uri)
-                    for uri in get_all_waymo_segment_uris(datatype)]
+                    for uri in get_all_waymo_segment_uris(bucket, datatype)]
     return [uri for uri in all_segments if uri not in segments_with_images]
 
 
-def get_partial_segments(datatype):
-    image_segments = get_segments_with_images(datatype)
+def get_partial_segments(bucket="waymo-processed-images", datatype="train"):
+    image_segments = get_segments_with_images(bucket, datatype)
     annotation_segments = [get_segment_name(
-        uri) for uri in get_annotation_uris(datatype)]
+        uri) for uri in get_annotation_uris(bucket, datatype)]
     return [segment for segment in image_segments if segment not in annotation_segments]
 
 
@@ -204,13 +209,13 @@ def list_files(path):
     return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 
 
-def download_annotations_and_images(annotations_directory, images_directory, datatype="train", chunk_size=25, nth_frame=10):
+def download_annotations_and_images(annotations_directory, images_directory, bucket="waymo-processed-images", datatype="train", chunk_size=25, nth_frame=10):
     # Strip any trailing slashes
     annotations_directory = re.sub(r"\/$", "", annotations_directory)
 
     # Create the directory if it doesn't exist
     create_missing_dir(annotations_directory)
-    annotation_uris = get_annotation_uris(datatype)
+    annotation_uris = get_annotation_uris(bucket, datatype)
     DEVNULL = open(os.devnull, 'w')
 
     # Get existing annotations
@@ -243,6 +248,8 @@ if __name__ == '__main__':
     # Read in script arguments
     parser = argparse.ArgumentParser(
         description='Download images and annotations from the project bucket')
+    parser.add_argument('-b', '--bucket', help='GCP Bucket for image/annotation storage',
+                        dest='bucket', default='waymo-processed-images')
     parser.add_argument('-t', '--datatype', help='Datatype to load',
                         dest='datatype', default='train', choices=['train', 'validation'])
     parser.add_argument('-d', '--data_directory', help='Directory to place downloaded files',
@@ -256,5 +263,5 @@ if __name__ == '__main__':
     download_annotations_and_images(
         f"{args.data_directory}/{args.datatype}/annotations",
         f"{args.data_directory}/{args.datatype}/images",
-        args.datatype, int(args.chunk_size), int(args.nth_frame)
+        args.bucket, args.datatype, int(args.chunk_size), int(args.nth_frame)
     )

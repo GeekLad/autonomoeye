@@ -1,13 +1,7 @@
 import google.auth
-from google.cloud import storage
 from waymo_open_dataset import dataset_pb2 as open_dataset
-from waymo_open_dataset.utils import frame_utils
-from waymo_open_dataset.utils import transform_utils
-from waymo_open_dataset.utils import range_image_utils
 import tensorflow as tf
-import matplotlib.pyplot as plt
 import argparse
-import yaml
 from tqdm import tqdm
 from PIL import Image
 from datetime import datetime
@@ -15,11 +9,8 @@ import pandas as pd
 import numpy as np
 import json
 import os
-import sys
 import re
-sys.path.append(os.getcwd())
-sys.path.append(os.getcwd() + "/..")
-import utils.gcp
+from autonomoeye.utils.gcp import get_uris, upload_blob, fetch_segment, get_partial_segments, get_missing_segments
 
 
 def initialize_annotations_dict():
@@ -49,7 +40,7 @@ def initialize_annotations_dict():
 
 def get_last_index(bucket, datatype, segment):
     try:
-        image_uris = utils.gcp.get_uris(
+        image_uris = get_uris(
             f"gs://{bucket}/{datatype}/images/*/{segment}/*.jpeg")
         indicies = [re.findall(
             r"\d+(?:_\d+){4}_(\d+)_", uri) for uri in image_uris]
@@ -114,7 +105,7 @@ def process_segment(dataset, annotations, processed_bucket, datatype, temp_direc
                 img_array = np.array(tf.image.decode_jpeg(image.image))
                 img = Image.fromarray(img_array)
                 img.save(temp_file)
-                utils.gcp.upload_blob(processed_bucket, temp_file, gcp_path)
+                upload_blob(processed_bucket, temp_file, gcp_path)
                 os.remove(temp_file)
             else:
                 print(
@@ -140,8 +131,8 @@ def process_segment(dataset, annotations, processed_bucket, datatype, temp_direc
     # Save the annotations
     with open(f"{temp_directory}/{segment_name}.json", "w") as f:
         json.dump(annotations, f)
-    utils.gcp.upload_blob(processed_bucket, f"{temp_directory}/{segment_name}.json",
-                          f"{datatype}/annotations/{date}/{segment_name}.json")
+    upload_blob(processed_bucket, f"{temp_directory}/{segment_name}.json",
+                f"{datatype}/annotations/{date}/{segment_name}.json")
     os.remove(f"{temp_directory}/{segment_name}.json")
 
     # Add the processed info to the metadata csv
@@ -163,7 +154,7 @@ def download_and_process_segment(bucket, datatype, segment):
 
     # Fetch and process the segment
     print(f"Fetching {segment} from Waymo GCP Bucket")
-    dataset = utils.gcp.fetch_segment(segment, datatype)
+    dataset = fetch_segment(segment, datatype)
     print("Processing segment")
     process_segment(dataset, annotations, bucket, datatype, "tmp")
 
@@ -239,12 +230,12 @@ if __name__ == '__main__':
 
     if args.partial == True:
         print(f"Finding partial {args.datatype} segments")
-        segments = utils.gcp.get_partial_segments(args.datatype)
+        segments = get_partial_segments(args.bucket, args.datatype)
         for segment in segments:
             download_and_process_segment(args.bucket, args.datatype, segment)
     else:
         while True:
             print(f"Finding missing {args.datatype} segments")
-            missing_segments = utils.gcp.get_missing_segments(args.datatype)
+            missing_segments = get_missing_segments(args.bucket, args.datatype)
             download_and_process_segment(
                 args.bucket, args.datatype, missing_segments[0])
