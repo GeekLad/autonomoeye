@@ -5,6 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Streamlit App",
+            "type": "python",
+            "request": "launch",
+            "module": "streamlit",
+            "justMyCode": true,
+            "cwd": "${fileDirname}",
+            "args": [
+                "run",
+                "${file}"
+            ]
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
@@ -13,7 +25,7 @@
             "justMyCode": true,
             "cwd": "${fileDirname}",
             "env": {
-                "PYTHONPATH": "/home/jasierra${pathSeparator}${env:PYTHONPATH}"
+                "PYTHONPATH": "/mnt/d${pathSeparator}${env:PYTHONPATH}"
             }
         }
     ]
