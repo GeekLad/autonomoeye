@@ -20,4 +20,7 @@ RUN pip3 install -r requirements.txt
 
 EXPOSE 5000
 
+ENV MODEL_WEIGHTS_PATH=/app
+ENV NMS_THRESHOLD=0.1
+
 ENTRYPOINT ["python3", "app.py"]

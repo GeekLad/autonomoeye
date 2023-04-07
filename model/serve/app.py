@@ -1,5 +1,5 @@
+import os
 import flask
-
 import numpy as np
 from PIL import Image
 
@@ -9,6 +9,8 @@ from torchvision.models.detection import FasterRCNN
 from torchvision.models.detection.rpn import AnchorGenerator
 
 
+MODEL_WEIGHTS_PATH = os.getenv("MODEL_WEIGHTS_PATH", "/app")
+NMS_THRESHOLD = int(os.getenv("NMS_THRESHOLD", 0.1))
 app = flask.Flask(__name__)
 model = None
 
@@ -103,7 +105,7 @@ def predict():
 
 if __name__ == "__main__":
     print("* Loading trained model and Flask server...")
-    load_model('/app/model_weights.pth')
+    load_model(f"{MODEL_WEIGHTS_PATH}/model_weights.pth")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     app.run(host='0.0.0.0', port=5000, debug=False)

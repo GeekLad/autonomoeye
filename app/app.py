@@ -15,6 +15,9 @@ from matplotlib import pyplot as plt
 import matplotlib.patches as patches
 
 
+NMS_THRESHOLD = int(os.getenv("NMS_THRESHOLD", 0.1))
+
+
 def plot_annotations(img, bbox, labels, scores, confidence_threshold,
                      save_fig_path='predicted_img.jpeg', show=False, save_fig=True):
     """
@@ -49,7 +52,7 @@ def plot_annotations(img, bbox, labels, scores, confidence_threshold,
             plt.text(entry[0], entry[1], s=labels_map[str(labels[idx])],
                      color='white', verticalalignment='top',
                      bbox={'color': colors_map[str(labels[idx])], 'pad': 0},
-                     font={'size': 500})
+                     font={'size': 150})
 
             # Add the patch to the Axes
             ax.add_patch(rect)
@@ -66,7 +69,7 @@ def plot_annotations(img, bbox, labels, scores, confidence_threshold,
     return save_fig_path
 
 
-def generate_prediction_user_image(imgfile, rest_api, image_path, confidence_threshold=0.6):
+def generate_prediction_user_image(imgfile, rest_api, image_path):
     """
     This function requests prediction from rest_api and 
     plots bounding boxes of result over image.
@@ -84,7 +87,7 @@ def generate_prediction_user_image(imgfile, rest_api, image_path, confidence_thr
     # Create new figure
     img = Image.open(imgfile)
     pred_fig = plot_annotations(img, boxes, labels, scores,
-                                confidence_threshold, save_fig_path=image_path)
+                                NMS_THRESHOLD, save_fig_path=image_path)
 
     return pred_fig
 
