@@ -10,7 +10,7 @@ from torchvision.models.detection.rpn import AnchorGenerator
 
 
 MODEL_WEIGHTS_PATH = os.getenv("MODEL_WEIGHTS_PATH", "/app")
-NMS_THRESHOLD = int(os.getenv("NMS_THRESHOLD", 0.1))
+NMS_THRESHOLD = float(os.getenv("NMS_THRESHOLD", 0.1))
 app = flask.Flask(__name__)
 model = None
 

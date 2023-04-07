@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 import matplotlib.patches as patches
 
 
-NMS_THRESHOLD = int(os.getenv("NMS_THRESHOLD", 0.1))
+NMS_THRESHOLD = float(os.getenv("NMS_THRESHOLD", 0.1))
 
 
 def plot_annotations(img, bbox, labels, scores, confidence_threshold,
