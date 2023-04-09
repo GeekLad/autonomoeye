@@ -6,6 +6,7 @@ import requests
 import json
 import numpy as np
 import os
+import time
 
 from glob import glob
 
@@ -13,9 +14,6 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import matplotlib.patches as patches
-
-
-NMS_THRESHOLD = float(os.getenv("NMS_THRESHOLD", 0.1))
 
 
 def plot_annotations(img, bbox, labels, scores, confidence_threshold,
@@ -69,7 +67,7 @@ def plot_annotations(img, bbox, labels, scores, confidence_threshold,
     return save_fig_path
 
 
-def generate_prediction_user_image(imgfile, rest_api, image_path):
+def generate_prediction_user_image(imgfile, rest_api, image_path, nms):
     """
     This function requests prediction from rest_api and 
     plots bounding boxes of result over image.
@@ -87,9 +85,42 @@ def generate_prediction_user_image(imgfile, rest_api, image_path):
     # Create new figure
     img = Image.open(imgfile)
     pred_fig = plot_annotations(img, boxes, labels, scores,
-                                NMS_THRESHOLD, save_fig_path=image_path)
+                                nms, save_fig_path=image_path)
 
     return pred_fig
+
+
+def process_uploaded_image():
+    global processing
+    global prior_image
+    global prior_nms
+    try:
+        if processing == True:
+            return
+    except:
+        processing = False
+        prior_image = None
+        prior_nms = 0
+    if uploaded_img != prior_image and nms != prior_nms and processing == False:
+        processing = True
+        prior_image = uploaded_img
+        prior_nms = nms
+        placeholder.empty()
+        image = Image.open(uploaded_img)
+        image.save('userupload/tmpImgFile.jpg')
+        with placeholder.container():
+            st.write("Our Model is running its prediction...")
+            st.write("&nbsp;")
+            st.image(image, caption='Uploaded Image.',
+                     use_column_width=False, width=776)
+        # Call Model
+        pred_img = generate_prediction_user_image(
+            'userupload/tmpImgFile.jpg', rest_api, '/tmp/tmp_usr.jpeg', st.session_state.nms)
+        placeholder.empty()
+        time.sleep(0.01)
+        with placeholder.container():
+            st.image(pred_img)
+        processing = False
 
 
 rest_api = os.getenv("FLASK_API_URL", "http://localhost:5000/predict")
@@ -115,6 +146,20 @@ with row1_2:
 
 st.markdown("""---""")
 
+# st.markdown("#")
+# User Upload
+st.markdown('''
+    ## Upload an Image For Vehicle and Pedestrian Detection
+    Lower values for detection sensitivity will detect more objects, but potentially have more false positives.  Higher values should result in fewer false positives, but also fewer objects detected overall.    
+''')
+nms = st.slider("Detection Sensitivity", 0.1, 0.9, 0.1, 0.01, key="nms",
+                on_change=process_uploaded_image)
+uploaded_img = st.file_uploader("Upload an image...", type=["jpg", "jpeg"])
+placeholder = st.empty()
+process_uploaded_image()
+
+st.markdown("""---""")
+
 # Dropdown
 row2_1, row2_2, row2_3 = st.columns((1.5, 1.5, 1.5))
 location_map = {'San Francisco': 'location_sf',
@@ -131,7 +176,6 @@ with row2_3:
 
 # Slider
 frame = st.slider("Frame", 0, 180, 0)
-st.markdown("#")
 
 #segments = []
 #base = '/Users/ananshu/Documents/Aravindh/MADS/VSCODE/Projects/autonomoeye_1/app/'
@@ -198,22 +242,5 @@ with row4_3:
         st.image(img_r)
     except:
         st.markdown("")
-
-st.markdown("""---""")
-
-st.markdown("#")
-# User Upload
-st.markdown('''## You want to try now?''')
-uploaded_img = st.file_uploader("Upload an image...", type="jpeg")
-if uploaded_img is not None:
-    image = Image.open(uploaded_img)
-    image.save('userupload/tmpImgFile.jpg')
-    st.image(image, caption='Uploaded Image.', use_column_width=True)
-    st.write("")
-    st.write("Our Model is running its prediction...")
-    # Call Model
-    pred_img = generate_prediction_user_image(
-        'userupload/tmpImgFile.jpg', rest_api, '/tmp/tmp_usr.jpeg')
-    st.image(pred_img)
 
 st.markdown("""---""")
