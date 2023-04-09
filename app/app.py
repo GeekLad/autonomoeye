@@ -90,35 +90,50 @@ def generate_prediction_user_image(imgfile, rest_api, image_path, nms):
     return pred_fig
 
 
+def show_upload_ui():
+    prior_nms_key = f"nms_{st.session_state['upload_count']}"
+    st.session_state['upload_count'] = st.session_state['upload_count'] + 1
+    default_sensitivity = st.session_state[prior_nms_key] if prior_nms_key in st.session_state else 0.1
+    nms_key = f"nms_{st.session_state['upload_count']}"
+    upload_key = f"upload_{st.session_state['upload_count']}"
+    st.markdown("Lower values for detection sensitivity will detect more objects, but potentially have more false positives.  Higher values should result in fewer false positives, but also fewer objects detected overall.")
+    st.slider("Detection Sensitivity", 0.1, 0.9, default_sensitivity, 0.01, key=nms_key,
+              on_change=process_uploaded_image)
+    st.file_uploader(
+        "Upload an image...", key=upload_key, type=["jpg", "jpeg"], on_change=process_uploaded_image)
+
+
 def process_uploaded_image():
     global processing
     global prior_image
-    global prior_nms
     try:
         if processing == True:
             return
     except:
         processing = False
-        prior_image = None
-        prior_nms = 0
-    if uploaded_img != prior_image and nms != prior_nms and processing == False:
+    nms_key = f"nms_{st.session_state['upload_count']}"
+    upload_key = f"upload_{st.session_state['upload_count']}"
+    uploaded_img = st.session_state[upload_key]
+    if uploaded_img == None and "current_image" in st.session_state:
+        uploaded_img = st.session_state["current_image"]
+    nms = st.session_state[nms_key]
+    if uploaded_img != None and processing == False:
         processing = True
-        prior_image = uploaded_img
-        prior_nms = nms
+        st.session_state["current_image"] = uploaded_img
         placeholder.empty()
         image = Image.open(uploaded_img)
         image.save('userupload/tmpImgFile.jpg')
         with placeholder.container():
-            st.write("Our Model is running its prediction...")
-            st.write("&nbsp;")
-            st.image(image, caption='Uploaded Image.',
+            st.write("Our Model is running its prediction, please wait...")
+            st.image(image, caption='Uploaded Image',
                      use_column_width=False, width=776)
         # Call Model
         pred_img = generate_prediction_user_image(
-            'userupload/tmpImgFile.jpg', rest_api, '/tmp/tmp_usr.jpeg', st.session_state.nms)
+            'userupload/tmpImgFile.jpg', rest_api, '/tmp/tmp_usr.jpeg', nms)
         placeholder.empty()
-        time.sleep(0.01)
         with placeholder.container():
+            time.sleep(0.01)
+            show_upload_ui()
             st.image(pred_img)
         processing = False
 
@@ -148,16 +163,14 @@ st.markdown("""---""")
 
 # st.markdown("#")
 # User Upload
-st.markdown('''
-    ## Upload an Image For Vehicle and Pedestrian Detection
-    Lower values for detection sensitivity will detect more objects, but potentially have more false positives.  Higher values should result in fewer false positives, but also fewer objects detected overall.    
-''')
-nms = st.slider("Detection Sensitivity", 0.1, 0.9, 0.1, 0.01, key="nms",
-                on_change=process_uploaded_image)
-uploaded_img = st.file_uploader("Upload an image...", type=["jpg", "jpeg"])
+st.markdown('''## Upload an Image For Vehicle and Pedestrian Detection''')
 placeholder = st.empty()
-process_uploaded_image()
-
+if "upload_count" not in st.session_state:
+    st.session_state["upload_count"] = -1
+    uploaded_img = None
+    nms = -1
+with placeholder.container():
+    show_upload_ui()
 st.markdown("""---""")
 
 # Dropdown

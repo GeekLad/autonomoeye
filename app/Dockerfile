@@ -20,6 +20,5 @@ EXPOSE 8501
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
 
 ENV FLASK_API_URL=http://localhost:5000/predict
-ENV NMS_THRESHOLD=0.1
 
 ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
