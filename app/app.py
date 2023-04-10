@@ -178,17 +178,22 @@ row2_1, row2_2, row2_3 = st.columns((1.5, 1.5, 1.5))
 location_map = {'San Francisco': 'location_sf',
                 'Phoenix': 'location_phx', 'Other': 'location_other'}
 tod_map = {'Day': 'day', 'Dawn/Dusk': 'dawn_dusk', 'Night': 'night'}
-weather_map = {'Sunny': 'sunny', 'Rain': 'rain'}
+weather_map = {'Clear': 'clear', 'Rain': 'rain'}
 
 with row2_1:
     location = st.selectbox('Location', ('San Francisco', 'Phoenix', 'Other'))
 with row2_2:
-    tod = st.selectbox('Time of Day', ('Day', 'Dawn/Dusk', 'Night'))
+    if location != "Other":
+        tod = st.selectbox('Time of Day', ('Day', 'Dawn/Dusk', 'Night'))
+    else:
+        tod = st.selectbox('Time of Day', ('Day', 'Night'))
 with row2_3:
-    weather = st.selectbox('Weather', ('Sunny', 'Rain'))
-
-# Slider
-frame = st.slider("Frame", 0, 180, 0)
+    if (location == "San Francisco" and tod == "Dawn/Dusk") or (location == "Phoenix" and tod != "Dawn/Dusk"):
+        weather = "Clear"
+    elif location == "Other" and tod == "Night":
+        weather = "Rain"
+    else:
+        weather = st.selectbox('Weather', ('Clear', 'Rain'))
 
 #segments = []
 #base = '/Users/ananshu/Documents/Aravindh/MADS/VSCODE/Projects/autonomoeye_1/app/'
@@ -206,7 +211,7 @@ row3_1, row3_2, row3_3 = st.columns((1.5, 1.5, 1.5))
 with row3_1:
     try:
         img_fl = Image.open('data/{}/{}/{}/{}/{}_{}_FRONT_LEFT.jpeg'.format(
-            location_map[location], tod_map[tod], weather_map[weather], segment, segment, frame))
+            location_map[location], tod_map[tod], weather_map[weather], segment, segment, 0))
         #print('data/{}/{}/{}/{}/{}_{}_FRONT_LEFT.jpeg'.format(location_map[location],tod_map[tod], weather_map[weather], segment, segment,frame))
         st.markdown("## Front Left Camera")
 
@@ -217,7 +222,7 @@ with row3_1:
 with row3_2:
     try:
         img_f = Image.open('data/{}/{}/{}/{}/{}_{}_FRONT.jpeg'.format(
-            location_map[location], tod_map[tod], weather_map[weather], segment, segment, frame))
+            location_map[location], tod_map[tod], weather_map[weather], segment, segment, 0))
         st.markdown("## Front Center Camera")
         # Call Model
         st.image(img_f)
@@ -227,7 +232,7 @@ with row3_2:
 with row3_3:
     try:
         img_sl = Image.open('data/{}/{}/{}/{}/{}_{}_SIDE_LEFT.jpeg'.format(
-            location_map[location], tod_map[tod], weather_map[weather], segment, segment, frame))
+            location_map[location], tod_map[tod], weather_map[weather], segment, segment, 0))
         st.markdown("## Front Right Camera")
         st.image(img_sl)
     except:
@@ -238,7 +243,7 @@ row4_1, row4_2, row4_3 = st.columns((1.5, 1.5, 1.5))
 with row4_1:
     try:
         img_l = Image.open('data/{}/{}/{}/{}/{}_{}_FRONT_RIGHT.jpeg'.format(
-            location_map[location], tod_map[tod], weather_map[weather], segment, segment, frame))
+            location_map[location], tod_map[tod], weather_map[weather], segment, segment, 0))
         st.markdown("## Left Camera")
         st.image(img_l)
     except:
@@ -250,7 +255,7 @@ with row4_2:
 with row4_3:
     try:
         img_r = Image.open('data/{}/{}/{}/{}/{}_{}_SIDE_RIGHT.jpeg'.format(
-            location_map[location], tod_map[tod], weather_map[weather], segment, segment, frame))
+            location_map[location], tod_map[tod], weather_map[weather], segment, segment, 0))
         st.markdown("## Right Camera")
         st.image(img_r)
     except:
