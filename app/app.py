@@ -149,7 +149,7 @@ st.set_page_config(page_title="autonomoeye",
 col1, col2 = st.columns((2, 3))
 with col2:
     # Header
-    header_img = Image.open('assets/autonomoeye_1.png')
+    header_img = Image.open('assets/logo.png')
     st.image(header_img, width=300)
 
 
