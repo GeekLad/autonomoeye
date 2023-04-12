@@ -142,7 +142,7 @@ rest_api = os.getenv("FLASK_API_URL", "http://localhost:5000/predict")
 
 # st.title("AutonomoEye")
 # Page Config
-st.set_page_config(page_title="autonomoeye",
+st.set_page_config(page_title="Autonomoeye",
                    page_icon="eye",
                    layout="wide")
 
