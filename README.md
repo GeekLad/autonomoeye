@@ -171,12 +171,51 @@ We used PyTorch DataLoader to create the validation dataload as well. Model eval
 
 ![eval][eval]
 
+## Executing Model Training & Evaluation
+To train and evaluate the model, after downloading the training and validation data to the training environment, move the `combined_annotations.json` file into the parent directory of the `/images` folder.  Then run the following from the project folder:
+
+```shell
+cd model/train
+PYTHONPATH=$PWD/../../..:PYTHONPATH python3 fcnn_train.py
+```
+
+Using a GPU is highly recommended, as training will take much longer on a CPU.
+
 ## User Interface
 Streamlit is an open-source Python library that can build a UI for various purposes. It has simple but effective components for user interaction and layout which let us build effective and attractive data science and dashboard applications.
 
 We have simple UI design to display the object detection of images with different location, time and weather.
 
 Also, we have an option for users to upload the image and run our object detection model to display the results.
+
+## Launching the User Interface
+To lauch the user interface, you will need two separate shell windows.  One to launch the Streamlit app and the other to launch the Flask API.  You will also need to have the `model_weights.pth` from training.
+
+### Launching the Flask API
+From the project root folder, run:
+
+```shell
+cd model/serve
+pip install -r requirements.txt
+MODEL_WEIGHTS_PATH=$PWD python3 app.py
+```
+
+### Launching the Streamlit App
+From the project root folder, while the Flask API is running:
+
+```shell
+cd app
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+### Docker Deployment
+You can use `docker build` from the `model/serve` and `app` directories to build Docker images for the Flask API and Streamlit UI respectively.  Then you can publish the Docker containers to a container repository and use a Docker hosting service of your choice.
+
+We utilized Google Cloud Run to deploy our Docker containers.  In each of the directories, you will find a `build.sh` script that we used for our deployment, that you can use as an example for deploying to your service of choice.
+
+When deploying the Streamlit app, you will need to set the `FLASK_API_URL` Docker environment variable to the URL for the Flask API, incluidng the `/predict` endpoint.  In the case of our deployment, our `FLASK_API_URL` is set to `https://api.autonomoeye.com/predict`.
+
 
 ## Results
 The model is being trained using Faster R-CNN which consists of several losses. Here are the details on each of the losses:
